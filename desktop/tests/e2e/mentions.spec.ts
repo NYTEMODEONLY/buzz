@@ -187,7 +187,7 @@ async function expectAgentProfileActionsHidden(
   ).toHaveCount(0);
 }
 
-test("@ trigger prioritizes channel members before runnable personas and other managed agents", async ({
+test("@ trigger prioritizes channel members before runnable personas and other agents", async ({
   page,
 }) => {
   await installMockBridge(page, {
@@ -209,7 +209,7 @@ test("@ trigger prioritizes channel members before runnable personas and other m
 
   const dropdown = autocomplete(page);
   await expect(dropdown).toBeVisible();
-  await expect(dropdown.getByText("alice")).toHaveCount(0);
+  await expect(dropdown.getByText("alice")).toBeVisible();
   await expect(dropdown.getByText("bob")).toBeVisible();
   await expect(dropdown.getByText("Fizz")).toBeVisible();
   await expect(dropdown.getByText("charlie")).toBeVisible();
@@ -225,6 +225,7 @@ test("@ trigger prioritizes channel members before runnable personas and other m
 
   const suggestions = dropdown.locator("button");
   const suggestionText = await suggestions.allInnerTexts();
+  const aliceIndex = suggestionText.findIndex((text) => text.includes("alice"));
   const fizzIndex = suggestionText.findIndex((text) => text.includes("Fizz"));
   const bobIndex = suggestionText.findIndex((text) => text.includes("bob"));
   const charlieIndex = suggestionText.findIndex((text) =>
@@ -233,12 +234,37 @@ test("@ trigger prioritizes channel members before runnable personas and other m
   const outsiderIndex = suggestionText.findIndex((text) =>
     text.includes("outsider"),
   );
+  expect(aliceIndex).toBeGreaterThanOrEqual(0);
   expect(fizzIndex).toBeGreaterThanOrEqual(0);
   expect(bobIndex).toBeGreaterThanOrEqual(0);
   expect(charlieIndex).toBeGreaterThanOrEqual(0);
   expect(outsiderIndex).toEqual(-1);
+  expect(aliceIndex).toBeLessThan(fizzIndex);
   expect(bobIndex).toBeLessThan(fizzIndex);
   expect(fizzIndex).toBeLessThan(charlieIndex);
+});
+
+test("@ trigger keeps a known DM agent visible when relay directory discovery misses it", async ({
+  page,
+}) => {
+  await installMockBridge(page, { replaceRelayAgents: true });
+  await page.goto("/");
+  await page.getByTestId("channel-general").click();
+  await expect(page.getByTestId("chat-title")).toHaveText("general");
+
+  const input = page.getByTestId("message-input");
+  await input.fill("@ali");
+
+  const dropdown = autocomplete(page);
+  await expect(dropdown.getByText("alice")).toBeVisible();
+  await dropdown.getByText("alice").click();
+
+  await expect(input).toHaveText("@alice ");
+  await expect(
+    input.locator(".mention-chip.agent-mention-highlight", {
+      hasText: "alice",
+    }),
+  ).toBeVisible();
 });
 
 test("thread autocomplete keeps multiple long names readable in a narrow panel", async ({
@@ -826,7 +852,7 @@ test("managed relay agents are visible in channel mentions regardless of relay p
   await expect(dropdown.getByText("agent")).toBeVisible();
 });
 
-test("relay-only agents stay hidden from channel mentions even when allowlisted", async ({
+test("relay-only agents are visible in channel mentions when allowlisted", async ({
   page,
 }) => {
   await installMockBridge(page, {
@@ -846,7 +872,9 @@ test("relay-only agents stay hidden from channel mentions even when allowlisted"
   const input = page.getByTestId("message-input");
   await input.fill("@quinn");
 
-  await expect(autocomplete(page)).toHaveCount(0);
+  const dropdown = autocomplete(page);
+  await expect(dropdown.getByText("quinn")).toBeVisible();
+  await expect(dropdown.getByText("agent")).toBeVisible();
 });
 
 test("mentioning an in-channel stopped managed agent starts it before sending", async ({

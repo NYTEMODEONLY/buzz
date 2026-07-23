@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   coalesceAgentAutocompleteCandidates,
+  getJoinedDmPeerPubkeys,
   getMentionableAgentPubkeys,
   getSharedChannelIds,
   isAgentIdentityInManagedList,
@@ -44,6 +45,41 @@ test("getSharedChannelIds: includes only active joined channels", () => {
       { id: "archived", isMember: true, archivedAt: "2026-01-01T00:00:00Z" },
     ]),
     new Set(["joined"]),
+  );
+});
+
+test("getJoinedDmPeerPubkeys: keeps only peers from active joined DMs", () => {
+  assert.deepEqual(
+    getJoinedDmPeerPubkeys(
+      [
+        {
+          channelType: "dm",
+          isMember: true,
+          archivedAt: null,
+          participantPubkeys: [CURRENT_PUBKEY, PUB_A.toUpperCase()],
+        },
+        {
+          channelType: "stream",
+          isMember: true,
+          archivedAt: null,
+          participantPubkeys: [PUB_B],
+        },
+        {
+          channelType: "dm",
+          isMember: false,
+          archivedAt: null,
+          participantPubkeys: [PUB_C],
+        },
+        {
+          channelType: "dm",
+          isMember: true,
+          archivedAt: "2026-01-01T00:00:00Z",
+          participantPubkeys: [PUB_D],
+        },
+      ],
+      CURRENT_PUBKEY,
+    ),
+    new Set([PUB_A]),
   );
 });
 

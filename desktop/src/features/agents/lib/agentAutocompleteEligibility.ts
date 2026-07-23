@@ -9,6 +9,43 @@ export function getSharedChannelIds(channels: readonly Channel[] | undefined) {
   );
 }
 
+/**
+ * Return peers from active DMs the current user has already joined.
+ *
+ * This is a conservative fallback for external agents whose public directory
+ * profile is temporarily absent from `list_relay_agents`: an existing DM
+ * proves the user already knows the exact peer identity, while the peer's
+ * kind-0 profile still decides whether it is an agent.
+ */
+export function getJoinedDmPeerPubkeys(
+  channels: readonly Channel[] | undefined,
+  currentPubkey?: string | null,
+) {
+  const normalizedCurrentPubkey = currentPubkey
+    ? normalizePubkey(currentPubkey)
+    : null;
+  const peerPubkeys = new Set<string>();
+
+  for (const channel of channels ?? []) {
+    if (
+      channel.channelType !== "dm" ||
+      !channel.isMember ||
+      channel.archivedAt !== null
+    ) {
+      continue;
+    }
+
+    for (const pubkey of channel.participantPubkeys) {
+      const normalized = normalizePubkey(pubkey);
+      if (normalized !== normalizedCurrentPubkey) {
+        peerPubkeys.add(normalized);
+      }
+    }
+  }
+
+  return peerPubkeys;
+}
+
 export function relayAgentIsSharedWithUser(
   agent: Pick<RelayAgent, "channelIds" | "respondTo" | "respondToAllowlist">,
   sharedChannelIds: ReadonlySet<string>,

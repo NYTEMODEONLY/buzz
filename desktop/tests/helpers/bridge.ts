@@ -225,6 +225,7 @@ type MockBridgeOptions = {
   personas?: MockPersonaSeed[];
   teams?: MockTeamSeed[];
   relayAgents?: MockRelayAgentSeed[];
+  replaceRelayAgents?: boolean;
   agentListDelayMs?: number;
   createManagedAgentDelayMs?: number;
   channelTemplates?: ChannelTemplate[];

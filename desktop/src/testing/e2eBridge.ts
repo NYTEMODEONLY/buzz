@@ -228,6 +228,7 @@ type E2eConfig = {
     personas?: MockPersonaSeed[];
     teams?: MockTeamSeed[];
     relayAgents?: MockRelayAgentSeed[];
+    replaceRelayAgents?: boolean;
     agentListDelayMs?: number;
     agentMemory?: RawAgentMemoryListing | Record<string, RawAgentMemoryListing>;
     addChannelMembersDelayMs?: number;
@@ -2066,13 +2067,15 @@ function buildSeededManagedAgent(seed: MockManagedAgentSeed): MockManagedAgent {
 }
 
 function resetMockRelayAgents(config?: E2eConfig) {
-  mockRelayAgents = defaultMockRelayAgents.map((agent) => ({
-    ...agent,
-    channels: [...agent.channels],
-    channel_ids: [...agent.channel_ids],
-    capabilities: [...agent.capabilities],
-    respond_to_allowlist: [...(agent.respond_to_allowlist ?? [])],
-  }));
+  mockRelayAgents = config?.mock?.replaceRelayAgents
+    ? []
+    : defaultMockRelayAgents.map((agent) => ({
+        ...agent,
+        channels: [...agent.channels],
+        channel_ids: [...agent.channel_ids],
+        capabilities: [...agent.capabilities],
+        respond_to_allowlist: [...(agent.respond_to_allowlist ?? [])],
+      }));
 
   for (const seed of config?.mock?.relayAgents ?? []) {
     const channels = mockChannels.filter((channel) => {

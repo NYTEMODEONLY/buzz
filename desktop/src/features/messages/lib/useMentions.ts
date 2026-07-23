@@ -29,7 +29,6 @@ import type {
   AgentPersona,
   ChannelMember,
   ChannelType,
-  UserSearchResult,
 } from "@/shared/api/types";
 import type { UserProfileLookup } from "@/features/profile/lib/identity";
 import { detectPrefixQuery } from "@/shared/lib/detectPrefixQuery";
@@ -37,11 +36,15 @@ import { normalizePubkey } from "@/shared/lib/pubkey";
 import { trimMapToSize } from "@/shared/lib/trimMapToSize";
 import { flushMentionDebounce } from "./flushMentionDebounce";
 import { hasMention } from "./hasMention";
+import { useDmAgentMentionCandidates } from "./useDmAgentMentionCandidates";
 import { useDraftMentionRouting } from "./useDraftMentionRouting";
 import { rankMentionCandidates } from "./mentionRanking";
 import { mapMentionCandidateToSuggestion } from "./mentionSuggestionMapping";
 import {
+  appendUniqueName,
   buildTeamMentionCandidates,
+  formatSearchUserDisplayName,
+  formatSearchUserSecondaryLabel,
   formatTeamMention,
   globalSearchIdentityKey,
   type MentionCandidate,
@@ -56,24 +59,6 @@ export type PersonaMentionTarget = {
 type UseMentionsOptions = {
   channelType?: ChannelType | null;
 };
-function formatSearchUserDisplayName(user: UserSearchResult) {
-  return user.displayName?.trim() || user.nip05Handle?.trim() || null;
-}
-function formatSearchUserSecondaryLabel(user: UserSearchResult) {
-  const displayName = user.displayName?.trim();
-  const nip05Handle = user.nip05Handle?.trim();
-  if (displayName && nip05Handle) {
-    return nip05Handle;
-  }
-  return null;
-}
-function appendUniqueName(current: string[], name: string): string[] {
-  return current.some(
-    (candidate) => candidate.toLowerCase() === name.toLowerCase(),
-  )
-    ? current
-    : [...current, name];
-}
 export function useMentions(
   channelId: string | null,
   externalMembers?: ChannelMember[],
@@ -108,6 +93,10 @@ export function useMentions(
   const channelsQuery = useChannelsQuery();
   const personasQuery = usePersonasQuery();
   const teamsQuery = useTeamsQuery();
+  const dmAgentCandidates = useDmAgentMentionCandidates(
+    channelsQuery.data,
+    currentPubkey,
+  );
   const managedAgentDirectoryReady =
     managedAgentsQuery.data !== undefined ||
     !managedAgentsQuery.isLoading ||
@@ -192,21 +181,22 @@ export function useMentions(
     () => getSharedChannelIds(channelsQuery.data),
     [channelsQuery.data],
   );
-  const mentionableAgentPubkeys = React.useMemo(
-    () =>
-      getMentionableAgentPubkeys({
-        currentPubkey,
-        managedAgentPubkeys,
-        relayAgents: relayAgentsQuery.data,
-        sharedChannelIds,
-      }),
-    [
+  const mentionableAgentPubkeys = React.useMemo(() => {
+    const pubkeys = getMentionableAgentPubkeys({
       currentPubkey,
       managedAgentPubkeys,
-      relayAgentsQuery.data,
+      relayAgents: relayAgentsQuery.data,
       sharedChannelIds,
-    ],
-  );
+    });
+    for (const pubkey of dmAgentCandidates.pubkeys) pubkeys.add(pubkey);
+    return pubkeys;
+  }, [
+    currentPubkey,
+    dmAgentCandidates.pubkeys,
+    managedAgentPubkeys,
+    relayAgentsQuery.data,
+    sharedChannelIds,
+  ]);
   const personaNameByPubkey = React.useMemo(() => {
     const agents = managedAgentsQuery.data ?? [];
     const personas = personasQuery.data ?? [];
@@ -246,7 +236,10 @@ export function useMentions(
       if (isArchivedDiscovery(pubkey)) {
         return;
       }
-      if (!isAgentIdentityInManagedList(candidate, managedAgentPubkeys)) {
+      if (
+        !mentionableAgentPubkeys.has(pubkey) &&
+        !isAgentIdentityInManagedList(candidate, managedAgentPubkeys)
+      ) {
         return;
       }
       if (
@@ -346,6 +339,12 @@ export function useMentions(
       });
     }
 
+    for (const candidate of dmAgentCandidates.candidates) {
+      if (candidate.pubkey) {
+        addCandidate({ ...candidate, pubkey: candidate.pubkey });
+      }
+    }
+
     for (const agent of managedAgentsQuery.data ?? []) {
       addCandidate({
         kind: "identity",
@@ -416,6 +415,7 @@ export function useMentions(
     canSearchGlobalUsers,
     currentPubkey,
     directoryAgentPubkeys,
+    dmAgentCandidates.candidates,
     isArchivedDiscovery,
     managedAgentNamesByPubkey,
     managedAgentPersonaIds,
