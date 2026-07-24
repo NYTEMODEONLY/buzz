@@ -1,0 +1,240 @@
+import { useQuery } from "@tanstack/react-query";
+import { AlertTriangle, RefreshCw } from "lucide-react";
+
+import { getCodexProviderUsage } from "@/shared/api/tauriProviderUsage";
+import { Button } from "@/shared/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
+import { Progress } from "@/shared/ui/progress";
+import { Spinner } from "@/shared/ui/spinner";
+import { cn } from "@/shared/lib/cn";
+import {
+  formatTokenCount,
+  formatUsageReset,
+  providerUsageErrorMessage,
+  providerUsageTone,
+} from "@/features/provider-usage/providerUsageDisplay.mjs";
+
+const FIVE_MINUTES = 5 * 60 * 1000;
+
+const toneClasses = {
+  healthy: {
+    stroke: "stroke-emerald-500",
+    text: "text-emerald-600 dark:text-emerald-400",
+    progress: "[&>div]:bg-emerald-500",
+  },
+  warning: {
+    stroke: "stroke-amber-500",
+    text: "text-amber-600 dark:text-amber-400",
+    progress: "[&>div]:bg-amber-500",
+  },
+  critical: {
+    stroke: "stroke-red-500",
+    text: "text-red-600 dark:text-red-400",
+    progress: "[&>div]:bg-red-500",
+  },
+} as const;
+
+function UsageRing({
+  isLoading,
+  remainingPercent,
+}: {
+  isLoading: boolean;
+  remainingPercent?: number;
+}) {
+  if (isLoading) {
+    return <Spinner aria-hidden="true" className="h-8 w-8 border-2" />;
+  }
+
+  if (remainingPercent === undefined) {
+    return (
+      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+        <AlertTriangle aria-hidden="true" className="h-4 w-4" />
+      </span>
+    );
+  }
+
+  const tone = providerUsageTone(remainingPercent);
+  const circumference = 2 * Math.PI * 14;
+  const dashOffset = circumference * (1 - remainingPercent / 100);
+
+  return (
+    <span className="relative h-8 w-8 shrink-0" aria-hidden="true">
+      <svg className="-rotate-90 h-8 w-8" viewBox="0 0 32 32">
+        <title>Codex usage remaining</title>
+        <circle
+          className="stroke-muted"
+          cx="16"
+          cy="16"
+          fill="none"
+          r="14"
+          strokeWidth="3"
+        />
+        <circle
+          className={cn(
+            "transition-[stroke-dashoffset] duration-300",
+            toneClasses[tone].stroke,
+          )}
+          cx="16"
+          cy="16"
+          fill="none"
+          r="14"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+          strokeLinecap="round"
+          strokeWidth="3"
+        />
+      </svg>
+    </span>
+  );
+}
+
+export function SidebarProviderUsageIndicator() {
+  const query = useQuery({
+    queryKey: ["provider-usage", "codex"],
+    queryFn: getCodexProviderUsage,
+    staleTime: FIVE_MINUTES,
+    refetchOnWindowFocus: true,
+    retry: 1,
+  });
+
+  const usage = query.data;
+  const tone =
+    usage === undefined ? undefined : providerUsageTone(usage.remainingPercent);
+  const planLabel =
+    usage?.planType === undefined || usage.planType === null
+      ? "Codex"
+      : `Codex ${usage.planType.charAt(0).toUpperCase()}${usage.planType.slice(1)}`;
+  const errorMessage = query.isError
+    ? providerUsageErrorMessage(query.error)
+    : null;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          aria-label={
+            usage
+              ? `${planLabel}: ${usage.remainingPercent}% remaining`
+              : (errorMessage ?? "Loading Codex usage")
+          }
+          className="mb-2 flex w-full items-center gap-2 rounded-lg border border-sidebar-border/70 bg-sidebar-accent/35 px-2 py-2 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1"
+          data-testid="sidebar-provider-usage"
+          type="button"
+        >
+          <UsageRing
+            isLoading={query.isPending}
+            remainingPercent={usage?.remainingPercent}
+          />
+          <span className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+            <span className="block truncate text-xs font-medium">
+              {errorMessage ?? planLabel}
+            </span>
+            <span
+              className={cn(
+                "block truncate text-sm font-semibold tabular-nums",
+                tone ? toneClasses[tone].text : "text-muted-foreground",
+              )}
+            >
+              {usage ? `${usage.remainingPercent}% left` : "Checking usage…"}
+            </span>
+          </span>
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent align="end" className="w-80" side="right" sideOffset={10}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-semibold">{planLabel}</p>
+            <p className="text-xs text-muted-foreground">
+              Local subscription usage
+            </p>
+          </div>
+          <Button
+            aria-label="Refresh Codex usage"
+            disabled={query.isFetching}
+            onClick={() => void query.refetch()}
+            size="icon-xs"
+            type="button"
+            variant="ghost"
+          >
+            <RefreshCw
+              aria-hidden="true"
+              className={cn(query.isFetching && "animate-spin")}
+            />
+          </Button>
+        </div>
+
+        {usage ? (
+          <div className="mt-4 space-y-4">
+            <div>
+              <div className="mb-1.5 flex items-baseline justify-between">
+                <span className="text-2xl font-semibold tabular-nums">
+                  {usage.remainingPercent}%
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {usage.usedPercent}% used
+                </span>
+              </div>
+              <Progress
+                aria-label={`${usage.remainingPercent}% remaining`}
+                className={cn(
+                  "h-2 bg-muted",
+                  tone && toneClasses[tone].progress,
+                )}
+                value={usage.remainingPercent}
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Resets {formatUsageReset(usage.resetsAt)}
+              </p>
+            </div>
+
+            <dl className="grid grid-cols-2 gap-3 rounded-lg bg-muted/45 p-3 text-xs">
+              <div>
+                <dt className="text-muted-foreground">Latest daily usage</dt>
+                <dd className="mt-0.5 font-medium tabular-nums">
+                  {formatTokenCount(usage.latestDailyTokens)} tokens
+                </dd>
+                {usage.latestDailyDate ? (
+                  <dd className="text-muted-foreground">
+                    {usage.latestDailyDate}
+                  </dd>
+                ) : null}
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Lifetime usage</dt>
+                <dd className="mt-0.5 font-medium tabular-nums">
+                  {formatTokenCount(usage.lifetimeTokens)} tokens
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Credit balance</dt>
+                <dd className="mt-0.5 font-medium tabular-nums">
+                  {usage.creditBalance ?? "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Reset credits</dt>
+                <dd className="mt-0.5 font-medium tabular-nums">
+                  {usage.resetCreditsAvailable ?? "—"}
+                </dd>
+              </div>
+            </dl>
+
+            <p className="text-2xs text-muted-foreground">
+              Updated{" "}
+              {new Date(usage.fetchedAt * 1000).toLocaleTimeString([], {
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+              {query.isError ? " · refresh failed; showing last result" : ""}
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-lg bg-muted/45 p-3 text-sm text-muted-foreground">
+            {errorMessage ?? "Reading Codex usage…"}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
