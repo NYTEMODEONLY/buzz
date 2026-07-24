@@ -1,4 +1,8 @@
+blank_issues_enabled: false
 contact_links:
-    - name: ❓ Questions and Help 🤔
-      url: https://discord.gg/block-opensource (/add your discord channel if applicable)
-      about: This issue tracker is not for support questions. Please refer to the community for more help. 
+  - name: Upstream Buzz issue
+    url: https://github.com/block/buzz/issues
+    about: Report bugs reproduced on an unmodified upstream Buzz build.
+  - name: Security vulnerability
+    url: https://github.com/NYTEMODEONLY/buzz/security/advisories/new
+    about: Privately report a vulnerability caused by Canary changes.

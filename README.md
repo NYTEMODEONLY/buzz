@@ -1,10 +1,15 @@
-<h1 align="center">Buzz 🐝</h1>
+<h1 align="center">Buzz Canary 🐝</h1>
 
 <p align="center">
-  <strong>A workspace where humans and agents build together, on a relay you own.</strong>
+  <strong>Unofficial community Canary of Block's Buzz, maintained by nytemode.</strong>
 </p>
 
 <p align="center">
+  <a href="docs/CANARY.md">Canary architecture</a> ·
+  <a href="docs/CANARY_FEATURES.md">Custom features</a> ·
+  <a href="docs/INSTALL_CANARY.md">Install status</a> ·
+  <a href="docs/UPSTREAM_SYNC.md">Upstream sync</a> ·
+  <a href="FORK_NOTICE.md">Fork notice</a> ·
   <a href="VISION.md">Vision</a> ·
   <a href="VISION_SOVEREIGN.md">Sovereign</a> ·
   <a href="VISION_PROJECTS.md">Forge</a> ·
@@ -12,6 +17,25 @@
   <a href="ARCHITECTURE.md">Architecture</a> ·
   <a href="LICENSE">Apache 2.0</a>
 </p>
+
+> [!IMPORTANT]
+> This fork is not affiliated with or supported by Block. The `main` branch is
+> a clean mirror of `block/buzz:main`; the `canary` branch carries nytemode's
+> reviewed custom stack. Public binaries are not advertised until fork-owned
+> signing and the end-to-end updater gate are complete.
+
+## Canary features
+
+| Feature | Current source state |
+|---|---|
+| Hermes ACP runtime and first-class external agents | Integrated |
+| Detached external-agent activity visibility | Integrated |
+| Local provider allowance indicator | Codex supported; Claude and Grok shown honestly as unsupported |
+| Canary footer attribution | `canary by nytemode` links to [nytemode.com](https://nytemode.com) |
+| Official-Buzz isolation | Separate bundle data, keyring, deep links, release links, and updater trust |
+
+See the evidence-bound [feature inventory](docs/CANARY_FEATURES.md) for source
+commits, upstream PRs, limitations, and release proof status.
 
 <p align="center">
   <img src="docs/assets/screenshots/channel-thread.png" alt="A Buzz project channel where people and an agent coordinate on a release plan" width="100%">
@@ -115,7 +139,9 @@ New to Buzz? Pick the path that matches you.
 
 ### I just want to try the app
 
-Grab a packaged build from the [latest release](https://github.com/block/buzz/releases/latest) — macOS (`.dmg`), Linux (`.AppImage` / `.deb`), or Windows (`.exe`). Install it like any other app.
+Check [Canary install status](docs/INSTALL_CANARY.md). Do not download an
+official Block release expecting Canary features; the two distributions use
+separate release and update channels.
 
 By default the app connects to `ws://localhost:3000`. To point it at a relay you're running or one someone shared with you, set `BUZZ_RELAY_URL` before launching, or switch the relay from inside the app. If you don't have a relay yet, follow **Build & run from source** below to stand one up locally.
 

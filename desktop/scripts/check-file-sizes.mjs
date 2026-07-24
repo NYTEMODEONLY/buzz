@@ -131,7 +131,10 @@ const overrides = new Map([
   // record_provider param + applies persona_field_with_record_fallback. +5 lines.
   // global-agent-config: spawn_agent_child loads global config and merges as
   // lowest env layer (+8 lines). Queued to split.
-  ["src-tauri/src/managed_agents/runtime.rs", 2216],
+  // Canary Hermes registration adds the single `hermes` runtime alias while
+  // detached activity adds one observer transport field. Keep this exact
+  // ratchet until the upstream runtime split absorbs those focused patches.
+  ["src-tauri/src/managed_agents/runtime.rs", 2217],
   // config-bridge setup-payload env-boundary fix adds readiness wiring in
   // spawn_agent_child; load-bearing security fix, queued to split.
   ["src-tauri/src/managed_agents/config_bridge/reader.rs", 1016],
@@ -307,7 +310,9 @@ const overrides = new Map([
   // None regression, .cmd shim resolution, no-git-bash error hint.
   // +32: deterministic .cmd resolver + no-registry + install_shell_from tests.
   // Managed-path resolution test split to discovery/tests/managed_path_resolution.rs.
-  ["src-tauri/src/managed_agents/discovery/tests.rs", 1273],
+  // Canary Hermes coverage adds the runtime identity/command normalization
+  // matrix required by #2468. Test-only growth; exact ratchet.
+  ["src-tauri/src/managed_agents/discovery/tests.rs", 1293],
   // identity-import-keyring: the identity resolution state machine's behavioral
   // matrix (46 tests over FakeIdentityStore — probe × marker × file cells,
   // adoption / read-back-corruption / marker-failure arms, recovery-mode
@@ -354,6 +359,10 @@ const overrides = new Map([
   // overage from load-bearing per-message plumbing, not generic debt growth.
   // Approved override; still queued to split with the rest of this list.
   ["src/features/messages/ui/MessageThreadPanel.tsx", 1006],
+  // Canary external-agent picker coverage threads verified eligible external
+  // identities through the existing mention source. This stays colocated with
+  // mention ranking until the upstream hook split lands.
+  ["src/features/messages/lib/useMentions.ts", 1016],
   // AgentConfigPanel footer fold into ProfileFieldGroup for the config-bridge
   // panel — a small overage from load-bearing UI plumbing, not generic debt
   // growth. Approved override; still queued to split with the rest of this list.

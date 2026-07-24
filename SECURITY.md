@@ -1,5 +1,17 @@
 # Security Policy
 
+## Buzz Canary reports
+
+For vulnerabilities caused by the `NYTEMODEONLY/buzz` Canary modifications,
+use GitHub's private vulnerability-reporting flow for this fork. Do not include
+secrets in public issues. Upstream vulnerabilities reproducible on unmodified
+`block/buzz:main` should follow Block's reporting route below.
+
+Buzz Canary is a community prerelease distribution and does not adopt Block's
+response-time commitments. Signed public releases are not claimed until the
+fork-owned signing and updater proof gate in
+[docs/RELEASING_CANARY.md](docs/RELEASING_CANARY.md) is complete.
+
 ## Reporting a Vulnerability
 
 **Please do not report security vulnerabilities through public GitHub issues.**

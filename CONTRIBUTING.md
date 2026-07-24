@@ -1,5 +1,21 @@
 # Contributing to Buzz
 
+> [!IMPORTANT]
+> This fork has two contribution destinations. Canary distribution changes
+> target `NYTEMODEONLY/buzz:canary`. Patches intended for Block target
+> `block/buzz:main` from a focused branch based on current upstream `main`.
+> Never base an upstream PR on `canary`.
+
+Every commit in this fork must carry matching `Co-authored-by` and
+`Signed-off-by` trailers for the human operator, using the repository-local
+`git config user.name` and `git config user.email`. Run the full package gate
+for touched code and attach exact-SHA evidence. Never commit credentials,
+signing keys, updater private keys, or local Canary test configs.
+
+Canary branch and release mechanics are documented in
+[docs/UPSTREAM_SYNC.md](docs/UPSTREAM_SYNC.md) and
+[docs/RELEASING_CANARY.md](docs/RELEASING_CANARY.md).
+
 Welcome, and thank you for your interest in contributing! Buzz is an
 open-source project and we're glad you're here. This guide will help you
 get from zero to a merged pull request.

@@ -6,6 +6,15 @@ use url::Url;
 
 use crate::nostr_bind;
 
+fn deep_link_scheme() -> &'static str {
+    option_env!("BUZZ_DESKTOP_BUILD_DEEP_LINK_SCHEME").unwrap_or("buzz")
+}
+
+pub(crate) fn is_supported_deep_link(url: &str) -> bool {
+    url.strip_prefix(deep_link_scheme())
+        .is_some_and(|suffix| suffix.starts_with("://"))
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PendingCommunityDeepLink {
@@ -291,7 +300,7 @@ fn parse_nostr_bind_deep_link(url: &Url) -> Result<NostrBindDeepLinkPayload, Str
     })
 }
 
-/// Handle an incoming `buzz://` deep link URL.
+/// Handle an incoming deep link URL for this compiled distribution.
 ///
 /// Currently supports:
 /// - `buzz://connect?relay=<ws(s)://...>` — emits `deep-link-connect` to the frontend
@@ -304,7 +313,7 @@ pub(crate) fn handle_deep_link_url(app: &tauri::AppHandle, url_str: &str) {
         }
     };
 
-    if url.scheme() != "buzz" {
+    if url.scheme() != deep_link_scheme() {
         eprintln!("buzz-desktop: ignoring unsupported deep link scheme: {url_str}");
         return;
     }
@@ -389,8 +398,9 @@ mod tests {
     use url::Url;
 
     use super::{
-        parse_add_community_deep_link, parse_join_deep_link, parse_message_deep_link,
-        parse_nostr_bind_deep_link, PendingCommunityDeepLink, PendingCommunityDeepLinks,
+        is_supported_deep_link, parse_add_community_deep_link, parse_join_deep_link,
+        parse_message_deep_link, parse_nostr_bind_deep_link, PendingCommunityDeepLink,
+        PendingCommunityDeepLinks,
     };
 
     fn pending(id: &str, relay_url: &str, code: Option<&str>) -> PendingCommunityDeepLink {
@@ -402,6 +412,15 @@ mod tests {
             policy_receipt: None,
             name: None,
         }
+    }
+
+    #[test]
+    fn only_the_compiled_distribution_scheme_is_accepted() {
+        assert!(is_supported_deep_link("buzz://message?channel=abc&id=xyz"));
+        assert!(!is_supported_deep_link(
+            "buzz-canary://message?channel=abc&id=xyz"
+        ));
+        assert!(!is_supported_deep_link("buzz:message"));
     }
 
     #[test]

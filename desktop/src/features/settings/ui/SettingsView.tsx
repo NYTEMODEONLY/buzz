@@ -1,5 +1,6 @@
 import * as React from "react";
 import { getVersion } from "@tauri-apps/api/app";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { AlertCircle, ArrowLeft, LoaderCircle, RefreshCw } from "lucide-react";
 
 import { useMyRelayMembershipLookupQuery } from "@/features/community-members/hooks";
@@ -16,6 +17,7 @@ import {
 } from "@/shared/features/useFeatureEnabled";
 import { topChromeBackdrop } from "@/shared/layout/chromeLayout";
 import { cn } from "@/shared/lib/cn";
+import { isNytemodeCanary, NYTEMODE_URL } from "@/shared/distribution";
 import {
   Sidebar,
   SidebarContent,
@@ -301,11 +303,29 @@ export function SettingsView({
           </FeatureGate>
           {appVersion ? (
             <p
-              className="px-2 pb-1 text-xs text-sidebar-foreground/45"
+              className="flex flex-wrap items-center gap-x-1 px-2 pb-1 text-xs text-sidebar-foreground/45"
               data-buzz-sidebar-secondary
               data-testid="settings-version"
             >
-              v{appVersion}
+              <span>v{appVersion}</span>
+              {isNytemodeCanary ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <a
+                    className="underline-offset-2 transition-colors hover:text-sidebar-foreground hover:underline"
+                    data-testid="settings-canary-credit"
+                    href={NYTEMODE_URL}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void openUrl(NYTEMODE_URL);
+                    }}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    canary by nytemode
+                  </a>
+                </>
+              ) : null}
             </p>
           ) : null}
         </SidebarFooter>
