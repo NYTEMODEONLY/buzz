@@ -52,5 +52,8 @@ export function providerUsageErrorMessage(error) {
   if (code.includes("protocol_unsupported")) {
     return "Update Codex to show usage";
   }
+  if (code.includes("response_too_large")) {
+    return "Codex returned an unsafe response";
+  }
   return "Usage temporarily unavailable";
 }
