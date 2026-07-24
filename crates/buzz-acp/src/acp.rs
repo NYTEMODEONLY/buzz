@@ -356,6 +356,12 @@ fn build_client_capabilities() -> serde_json::Value {
         // notifications. Without this the custom notification is suppressed
         // on goose's side and usage data is never emitted.
         "_meta": {
+            // Buzz keeps a channel turn visibly active while an ACP agent waits
+            // for durable work it started (for example Hermes Kanban cards).
+            // Agents that do not implement this extension simply ignore it.
+            "buzz": {
+                "detachedTaskVisibility": true
+            },
             "goose": {
                 "customNotifications": true
             },
@@ -2174,6 +2180,12 @@ mod tests {
             msg["params"]["clientCapabilities"]["_meta"]["goose"]["customNotifications"].as_bool(),
             Some(true),
             "goose customNotifications capability must be advertised"
+        );
+        assert_eq!(
+            msg["params"]["clientCapabilities"]["_meta"]["buzz"]["detachedTaskVisibility"]
+                .as_bool(),
+            Some(true),
+            "detached task visibility capability must be advertised"
         );
     }
 

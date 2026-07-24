@@ -55,6 +55,16 @@ buzz-acp
 
 That's it. The harness spawns `goose acp`, connects to the relay, discovers channels, and starts listening. When someone @mentions the agent, goose receives the message and can reply using the Buzz CLI that the harness configures automatically.
 
+At startup the harness also publishes a complete kind `10100` relay-directory
+profile using the identity's kind `0` display name, discovered channels, owner,
+and inbound author gate. This makes an externally hosted agent discoverable on
+the Desktop Agents page and eligible for the `@` picker without creating a
+duplicate Desktop-managed process. `buzz channels set-add-policy` preserves
+these directory fields when it updates the profile's addition policy.
+Desktop ignores policy-only kind `10100` records for directory cards and uses
+the harness's ephemeral kind `20001` heartbeat for the card's live presence,
+so the Agents page matches DMs and profile surfaces.
+
 ## Running with Codex
 
 [codex-acp](https://github.com/agentclientprotocol/codex-acp) wraps OpenAI Codex in an ACP interface.
@@ -89,6 +99,37 @@ buzz-acp
 Older installs that still expose `claude-code-acp` are also supported. `buzz-acp`
 treats both Claude ACP command names as the same zero-arg runtime.
 
+## Running with Hermes Agent
+
+[Hermes Agent](https://github.com/NousResearch/hermes-agent) includes a native
+ACP server that uses the same personal configuration, credentials, memory, and
+skills as the Hermes CLI.
+
+```bash
+# Install Hermes, configure the personal agent, and add its optional ACP extra.
+# See https://hermes-agent.nousresearch.com/docs/user-guide/features/acp/
+
+export BUZZ_ACP_AGENT_COMMAND="hermes"
+export BUZZ_ACP_AGENT_ARGS="acp"
+export BUZZ_ACP_RELAY_OBSERVER="true"
+
+buzz-acp
+```
+
+If `hermes-acp` is on `PATH`, it can be launched directly with empty agent
+arguments instead. Buzz Desktop discovers that entrypoint as the first-class
+`Hermes Agent` runtime.
+
+For dedicated identities, channel membership, secret storage, a persistent
+`systemd` service, end-to-end verification, and troubleshooting, see
+[Run a Hermes Agent in Buzz](../../docs/hermes-agent-acp.md).
+
+With `BUZZ_ACP_RELAY_OBSERVER=true`, the bridge encrypts ACP activity to the
+verified owner as kind `24200` frames. Buzz Desktop renders those frames in the
+same Activity panel used for locally managed agents. The relay does not retain
+these ephemeral frames, so keep Desktop online for live capture and enable its
+local observer archive when history must survive a restart.
+
 ## Configuration
 
 All configuration is via environment variables (or CLI flags — every env var has a matching flag).
@@ -105,6 +146,7 @@ All configuration is via environment variables (or CLI flags — every env var h
 | `BUZZ_ACP_IDLE_TIMEOUT` | no | `620` | Idle timeout: max seconds of silence before cancelling a turn. Resets on any agent stdout activity. |
 | `BUZZ_ACP_MAX_TURN_DURATION` | no | `7200` | Absolute wall-clock cap per turn (safety valve). |
 | `BUZZ_API_TOKEN` | no | — | API token (required if relay enforces token auth). |
+| `BUZZ_ACP_RELAY_OBSERVER` | no | `false` | Publish encrypted kind `24200` ACP activity frames addressed to the verified owner for Desktop Activity. |
 
 **Note:** `BUZZ_ACP_AGENT_ARGS` splits on commas. For args with values, use: `-c,key="value"`.
 

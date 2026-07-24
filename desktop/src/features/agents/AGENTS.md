@@ -22,6 +22,11 @@ X" flag): add it to `KnownAcpRuntime` first, expose it on
 `AcpRuntimeCatalogEntry`, then project it through the core. Do not shortcut
 with a TypeScript lookup table or an id comparison in a component.
 
+Adding a runtime follows the same rule: declare its command aliases, default
+arguments, install/readiness metadata, and configuration capabilities in the
+Rust catalog. Catalog-driven setup and selection surfaces should pick it up
+without a parallel TypeScript runtime list.
+
 ## Rules
 
 1. **No hardcoded harness-ID checks in render code.** `runtime.id === "claude"`
@@ -100,6 +105,22 @@ with a TypeScript lookup table or an id comparison in a component.
    Edit. In Edit,
    selecting Custom command keeps its required command field beside the harness
    picker rather than hiding it in Advanced.
+10. **External agents are relay identities, not shadow managed agents.** Their
+   runtime, prompts, memory, provider, skills, and identity stay on the external
+   host. Desktop may persist an owner-scoped presentation name/avatar, but that
+   presentation must flow through the shared profile query layer so cards,
+   profiles, messages, mentions, DMs, and sidebars agree. Never write the
+   presentation back to kind `0` or external runtime files. A policy-only kind
+   `10100` record is not a directory declaration and must not become a key-only
+   external card; directory entries require a non-empty `name` or
+   `display_name`. Card liveness comes from live kind `20001` presence, never a
+   persisted `status` field in kind `10100`.
+11. **Owner-declared relay agents participate in observer ingestion.** An
+   external agent with a verified NIP-OA owner belongs in the app-global
+   kind-`24200` ingestion list as `deployed`; non-owned and owner-unknown relay
+   agents stay excluded. Activity UI must use the combined managed + eligible
+   relay-agent candidate list, while interrupt/runtime controls remain local
+   only.
 
 ## The tests that enforce this
 
@@ -117,6 +138,11 @@ with a TypeScript lookup table or an id comparison in a component.
 - `desktop/tests/e2e/onboarding-agent-defaults.spec.ts` — onboarding behavior
   acceptance coverage for readiness, failure states, defaults, navigation,
   successful-empty vs failed optional-model discovery, and persistence races.
+- `externalAgentPresentation.test.mjs` and
+  `desktop/tests/e2e/agents.spec.ts` — owner presentation propagation across
+  profile-backed surfaces and external-agent Activity ingress.
+- `useAgentObserverIngestion.test.mjs` — verified-owner relay agents join
+  global observer ingestion without admitting unrelated relay identities.
 - Rust: `runtime_metadata_env_vars` tests pin spawn-time key application.
 
 ## Keep this file true
