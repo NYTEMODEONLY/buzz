@@ -1,15 +1,12 @@
 use std::io::Read;
-use tauri::State;
 
-use crate::{
-    app_state::AppState,
-    managed_agents::{
-        command_availability, is_npm_global_install, AcpRuntimeCatalogEntry,
-        DiscoverManagedAgentPrereqsRequest, InstallRuntimeResult, InstallStepResult,
-        ManagedAgentPrereqsInfo, RelayAgentInfo, DEFAULT_ACP_COMMAND,
-    },
-    nostr_convert,
-    relay::query_relay,
+mod relay_agents;
+pub use relay_agents::list_relay_agents;
+
+use crate::managed_agents::{
+    command_availability, is_npm_global_install, AcpRuntimeCatalogEntry,
+    DiscoverManagedAgentPrereqsRequest, InstallRuntimeResult, InstallStepResult,
+    ManagedAgentPrereqsInfo, DEFAULT_ACP_COMMAND,
 };
 
 fn active_installs() -> &'static std::sync::Mutex<std::collections::HashSet<String>> {
@@ -1062,27 +1059,6 @@ pub async fn discover_managed_agent_prereqs(
     })
     .await
     .map_err(|e| format!("spawn_blocking failed: {e}"))
-}
-
-#[tauri::command]
-pub async fn list_relay_agents(state: State<'_, AppState>) -> Result<Vec<RelayAgentInfo>, String> {
-    // Query kind:10100 agent profile events from the relay.
-    let events = query_relay(
-        &state,
-        &[serde_json::json!({
-            "kinds": [10100],
-        })],
-    )
-    .await?;
-
-    // The convert helper returns `{"agents": [...]}`. Extract and re-deserialize
-    // into the strongly-typed `Vec<RelayAgentInfo>` the frontend expects.
-    let value = nostr_convert::agents_from_events(&events);
-    let agents = value
-        .get("agents")
-        .cloned()
-        .unwrap_or_else(|| serde_json::json!([]));
-    serde_json::from_value(agents).map_err(|e| format!("agent parse failed: {e}"))
 }
 
 #[cfg(test)]

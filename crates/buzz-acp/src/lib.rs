@@ -93,6 +93,7 @@ async fn publish_presence(
 fn directory_profile_content(
     existing: Option<serde_json::Value>,
     display_name: &str,
+    agent_type: &str,
     channel_info: &HashMap<Uuid, relay::ChannelInfo>,
     respond_to: &RespondTo,
     respond_to_allowlist: &HashSet<String>,
@@ -110,7 +111,7 @@ fn directory_profile_content(
 
     profile.insert("name".into(), serde_json::json!(display_name));
     profile.insert("display_name".into(), serde_json::json!(display_name));
-    profile.insert("agent_type".into(), serde_json::json!("agent"));
+    profile.insert("agent_type".into(), serde_json::json!(agent_type));
     profile.insert(
         "channels".into(),
         serde_json::json!(channels.iter().map(|(_, name)| name).collect::<Vec<_>>()),
@@ -146,6 +147,16 @@ fn directory_profile_content(
     serde_json::Value::Object(profile)
 }
 
+fn directory_agent_type(agent_command: &str) -> String {
+    let normalized = config::normalize_agent_command_identity(agent_command);
+    let runtime = normalized.strip_suffix("-acp").unwrap_or(&normalized);
+    if runtime.is_empty() {
+        "agent".to_string()
+    } else {
+        runtime.to_string()
+    }
+}
+
 #[cfg(test)]
 mod directory_profile_tests {
     use super::*;
@@ -166,6 +177,7 @@ mod directory_profile_tests {
                 "custom": "preserved"
             })),
             "Alice",
+            "hermes",
             &channels,
             &RespondTo::OwnerOnly,
             &HashSet::new(),
@@ -173,6 +185,7 @@ mod directory_profile_tests {
         );
 
         assert_eq!(content["name"], "Alice");
+        assert_eq!(content["agent_type"], "hermes");
         assert_eq!(content["channels"], serde_json::json!(["identity"]));
         assert_eq!(
             content["channel_ids"],
@@ -189,6 +202,7 @@ mod directory_profile_tests {
         let content = directory_profile_content(
             None,
             "Silent",
+            "hermes",
             &HashMap::new(),
             &RespondTo::Nobody,
             &HashSet::new(),
@@ -215,6 +229,7 @@ mod directory_profile_tests {
                 "channel_ids": ["11111111-1111-1111-1111-111111111111"]
             })),
             "Alice",
+            "hermes",
             &channels,
             &RespondTo::OwnerOnly,
             &HashSet::new(),
@@ -226,6 +241,14 @@ mod directory_profile_tests {
             content["channel_ids"],
             serde_json::json!(["22222222-2222-2222-2222-222222222222"])
         );
+    }
+
+    #[test]
+    fn external_runtime_type_is_derived_from_the_acp_command() {
+        assert_eq!(directory_agent_type("hermes"), "hermes");
+        assert_eq!(directory_agent_type("hermes-acp"), "hermes");
+        assert_eq!(directory_agent_type("/usr/local/bin/codex-acp"), "codex");
+        assert_eq!(directory_agent_type(""), "agent");
     }
 }
 
@@ -313,6 +336,7 @@ async fn publish_directory_profile(
     let content = directory_profile_content(
         existing_profile,
         &display_name,
+        &directory_agent_type(&config.agent_command),
         channel_info,
         &config.respond_to,
         &config.respond_to_allowlist,

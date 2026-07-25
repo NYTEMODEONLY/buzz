@@ -2,6 +2,10 @@ import * as React from "react";
 import { ChevronDown, ChevronRight, Pencil, Search } from "lucide-react";
 
 import { externalAgentPresentationScope } from "@/features/agents/externalAgentPresentation";
+import {
+  externalRelayAgents,
+  formatExternalAgentType,
+} from "@/features/agents/lib/externalAgentDirectory";
 import { useCommunities } from "@/features/communities/useCommunities";
 import { usePresenceQuery } from "@/features/presence/hooks";
 import { useIdentityQuery } from "@/shared/api/hooks";
@@ -39,10 +43,11 @@ export function RelayDirectorySection({
     relayUrl: activeCommunity?.relayUrl,
   });
 
-  // Only show agents that are NOT managed locally — those are already in the
-  // managed agents section above.
+  // A side-by-side Desktop install intentionally has isolated local secrets.
+  // Exclude both agents managed here and agents the current owner manages from
+  // another Buzz install; only independently hosted runtimes belong below.
   const otherAgents = React.useMemo(
-    () => relayAgents.filter((agent) => !managedPubkeys.has(agent.pubkey)),
+    () => externalRelayAgents(relayAgents, managedPubkeys),
     [relayAgents, managedPubkeys],
   );
   const otherAgentPubkeys = React.useMemo(
@@ -154,7 +159,7 @@ export function RelayDirectorySection({
                     dataTestId={`external-agent-card-${agent.pubkey}`}
                     key={agent.pubkey}
                     label={agent.name}
-                    modelLabel={agent.agentType || "External runtime"}
+                    modelLabel={formatExternalAgentType(agent.agentType)}
                     onClick={() => onOpenAgentProfile(agent.pubkey)}
                     statusBadge={
                       <span className="mt-1 flex flex-wrap items-center gap-1.5">

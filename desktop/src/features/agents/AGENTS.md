@@ -114,7 +114,10 @@ without a parallel TypeScript runtime list.
    `10100` record is not a directory declaration and must not become a key-only
    external card; directory entries require a non-empty `name` or
    `display_name`. Card liveness comes from live kind `20001` presence, never a
-   persisted `status` field in kind `10100`.
+   persisted `status` field in kind `10100`. Cross-install classification uses
+   the current owner's kind `30177` managed-agent coordinates: an agent managed
+   by another isolated Buzz Desktop install is still managed, not external.
+   The directory card's runtime label comes from kind `10100` `agent_type`.
 11. **Owner-declared relay agents participate in observer ingestion.** An
    external agent with a verified NIP-OA owner belongs in the app-global
    kind-`24200` ingestion list as `deployed`; non-owned and owner-unknown relay
