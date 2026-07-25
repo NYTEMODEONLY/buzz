@@ -93,8 +93,14 @@ After discovery, the harness publishes the identity's complete kind `10100`
 agent-directory profile. Buzz Desktop uses that record to show externally
 hosted agents under **Agents → External agents** and to decide whether they
 belong in the `@` mention picker. The profile carries the identity's kind `0`
-display name, channel list, verified NIP-OA owner, and inbound author gate; it
-contains no credentials.
+display name, channel list, verified NIP-OA owner, inbound author gate, and
+normalized ACP runtime type (`hermes` for Hermes); it contains no credentials.
+
+Buzz-managed agents are excluded from this section using the owner's durable
+kind `30177` managed-agent coordinates, even when the viewer is a side-by-side
+Desktop install with isolated local app data. This prevents managed agents from
+being mislabeled as external merely because their secrets live in another Buzz
+installation.
 
 Desktop only treats records with a non-empty `name` or `display_name` as
 directory declarations. A policy-only kind `10100` record therefore remains

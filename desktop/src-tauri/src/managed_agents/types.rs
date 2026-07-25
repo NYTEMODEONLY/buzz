@@ -181,6 +181,11 @@ pub struct RelayAgentInfo {
     pub avatar_url: Option<String>,
     #[serde(default)]
     pub owner_pubkey: Option<String>,
+    /// True when the current Buzz identity has a live kind:30177 record for
+    /// this agent. This is relay-backed managed ownership, independent of
+    /// whether the current Desktop installation has the agent's local secrets.
+    #[serde(default)]
+    pub is_owner_managed: bool,
     pub agent_type: String,
     pub channels: Vec<String>,
     #[serde(default)]

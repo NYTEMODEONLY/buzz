@@ -307,6 +307,7 @@ export type RelayAgent = {
   name: string;
   avatarUrl: string | null;
   ownerPubkey: string | null;
+  isOwnerManaged: boolean;
   agentType: string;
   channels: string[];
   channelIds: string[];
