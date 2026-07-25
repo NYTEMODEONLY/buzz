@@ -7,6 +7,8 @@ use crate::{
     app_state::AppState, managed_agents::RelayAgentInfo, nostr_convert, relay::query_relay,
 };
 
+const RELAY_AGENT_FETCH_LIMIT: usize = 500;
+
 #[tauri::command]
 pub async fn list_relay_agents(state: State<'_, AppState>) -> Result<Vec<RelayAgentInfo>, String> {
     let owner_pubkey = state
@@ -19,23 +21,24 @@ pub async fn list_relay_agents(state: State<'_, AppState>) -> Result<Vec<RelayAg
     // A side-by-side Canary deliberately has isolated local secrets. Query the
     // current owner's durable managed-agent coordinates with the directory so
     // agents managed by another Buzz install do not look external here.
-    let events = query_relay(
-        &state,
-        &[
-            serde_json::json!({ "kinds": [10100] }),
-            serde_json::json!({
-                "authors": [owner_pubkey],
-                "kinds": [KIND_MANAGED_AGENT],
-            }),
-        ],
-    )
-    .await?;
-    let owner_managed_pubkeys = owner_managed_agent_pubkeys(&events, &owner_pubkey);
-    let directory_events = events
-        .iter()
-        .filter(|event| event.kind.as_u16() == 10100)
-        .cloned()
-        .collect::<Vec<_>>();
+    //
+    // Keep these as separately bounded requests. A combined unbounded query
+    // can hit the relay's aggregate result cap and silently drop the oldest
+    // managed coordinate while still returning a successful response.
+    let directory_filter = [serde_json::json!({
+        "kinds": [10100],
+        "limit": RELAY_AGENT_FETCH_LIMIT,
+    })];
+    let owner_managed_filter = [serde_json::json!({
+        "authors": [owner_pubkey],
+        "kinds": [KIND_MANAGED_AGENT],
+        "limit": RELAY_AGENT_FETCH_LIMIT,
+    })];
+    let (directory_events, owner_managed_events) = tokio::try_join!(
+        query_relay(&state, &directory_filter),
+        query_relay(&state, &owner_managed_filter),
+    )?;
+    let owner_managed_pubkeys = owner_managed_agent_pubkeys(&owner_managed_events, &owner_pubkey);
 
     let value = nostr_convert::agents_from_events(&directory_events);
     let agents = value
