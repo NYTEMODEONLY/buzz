@@ -21,12 +21,14 @@ import { ExternalAgentPresentationDialog } from "./ExternalAgentPresentationDial
 export function RelayDirectorySection({
   error,
   isLoading,
+  managedNames,
   managedPubkeys,
   onOpenAgentProfile,
   relayAgents,
 }: {
   error: Error | null;
   isLoading: boolean;
+  managedNames: Set<string>;
   managedPubkeys: Set<string>;
   onOpenAgentProfile: (pubkey: string) => void;
   relayAgents: RelayAgent[];
@@ -47,8 +49,8 @@ export function RelayDirectorySection({
   // Exclude both agents managed here and agents the current owner manages from
   // another Buzz install; only independently hosted runtimes belong below.
   const otherAgents = React.useMemo(
-    () => externalRelayAgents(relayAgents, managedPubkeys),
-    [relayAgents, managedPubkeys],
+    () => externalRelayAgents(relayAgents, managedPubkeys, managedNames),
+    [relayAgents, managedPubkeys, managedNames],
   );
   const otherAgentPubkeys = React.useMemo(
     () => otherAgents.map((agent) => normalizePubkey(agent.pubkey)),

@@ -4,14 +4,23 @@ import { normalizePubkey } from "@/shared/lib/pubkey";
 export function externalRelayAgents(
   relayAgents: readonly RelayAgent[],
   locallyManagedPubkeys: ReadonlySet<string>,
+  locallyManagedNames: ReadonlySet<string>,
 ): RelayAgent[] {
   const normalizedLocalPubkeys = new Set(
     [...locallyManagedPubkeys].map(normalizePubkey),
   );
+  // Archived managed coordinates can disappear from the relay's live
+  // kind:30177 view while their directory profile remains visible. If the
+  // same install already renders a managed card with that exact name, suppress
+  // the stale duplicate from External agents.
+  const normalizedLocalNames = new Set(
+    [...locallyManagedNames].map((name) => name.trim().toLowerCase()),
+  );
   return relayAgents.filter(
     (agent) =>
       !agent.isOwnerManaged &&
-      !normalizedLocalPubkeys.has(normalizePubkey(agent.pubkey)),
+      !normalizedLocalPubkeys.has(normalizePubkey(agent.pubkey)) &&
+      !normalizedLocalNames.has(agent.name.trim().toLowerCase()),
   );
 }
 

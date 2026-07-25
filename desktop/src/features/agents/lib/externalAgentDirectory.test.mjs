@@ -44,14 +44,39 @@ test("shows only truly external relay agents across isolated installs", () => {
     agentType: "hermes",
   });
 
-  assert.deepEqual(externalRelayAgents([muse, xena, zoey, alice], new Set()), [
-    alice,
-  ]);
+  assert.deepEqual(
+    externalRelayAgents([muse, xena, zoey, alice], new Set(), new Set()),
+    [alice],
+  );
 });
 
 test("also excludes agents managed by this local installation", () => {
   const local = relayAgent({ pubkey: "A".repeat(64) });
-  assert.deepEqual(externalRelayAgents([local], new Set(["a".repeat(64)])), []);
+  assert.deepEqual(
+    externalRelayAgents([local], new Set(["a".repeat(64)]), new Set()),
+    [],
+  );
+});
+
+test("deduplicates an archived managed coordinate by its local card name", () => {
+  const staleMuseDirectoryEntry = relayAgent({
+    pubkey: "1".repeat(64),
+    name: "MUSE",
+  });
+  const alice = relayAgent({
+    pubkey: "2".repeat(64),
+    name: "ALICE",
+    agentType: "hermes",
+  });
+
+  assert.deepEqual(
+    externalRelayAgents(
+      [staleMuseDirectoryEntry, alice],
+      new Set(),
+      new Set([" muse "]),
+    ),
+    [alice],
+  );
 });
 
 test("formats external runtime metadata for card labels", () => {

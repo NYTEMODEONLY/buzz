@@ -94,6 +94,11 @@ export function useManagedAgentActions() {
     [managedAgents],
   );
 
+  const managedNames = React.useMemo(
+    () => new Set(managedAgents.map((agent) => agent.name)),
+    [managedAgents],
+  );
+
   const managedPubkeyList = React.useMemo(
     () => managedAgents.map((agent) => agent.pubkey),
     [managedAgents],
@@ -396,6 +401,7 @@ export function useManagedAgentActions() {
     managedPresenceQuery,
     managedAgents,
     managedPubkeys,
+    managedNames,
     channelIdToName,
     channelsByPubkey,
     isPending,
