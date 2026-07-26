@@ -42,21 +42,36 @@ const toneClasses = {
 } as const;
 
 function UsageRing({
+  compact = false,
   isLoading,
   remainingPercent,
   label,
 }: {
+  compact?: boolean;
   isLoading: boolean;
   remainingPercent?: number;
   label: string;
 }) {
   if (isLoading) {
-    return <Spinner aria-hidden="true" className="h-8 w-8 border-2" />;
+    return (
+      <Spinner
+        aria-hidden="true"
+        className={cn(compact ? "h-5 w-5" : "h-8 w-8", "border-2")}
+      />
+    );
   }
   if (remainingPercent === undefined) {
     return (
-      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-        <AlertTriangle aria-hidden="true" className="h-4 w-4" />
+      <span
+        className={cn(
+          "flex items-center justify-center rounded-full bg-destructive/10 text-destructive",
+          compact ? "h-5 w-5" : "h-8 w-8",
+        )}
+      >
+        <AlertTriangle
+          aria-hidden="true"
+          className={compact ? "h-3 w-3" : "h-4 w-4"}
+        />
       </span>
     );
   }
@@ -65,8 +80,14 @@ function UsageRing({
   const circumference = 2 * Math.PI * 14;
   const dashOffset = circumference * (1 - remainingPercent / 100);
   return (
-    <span className="relative h-8 w-8 shrink-0" aria-hidden="true">
-      <svg className="-rotate-90 h-8 w-8" viewBox="0 0 32 32">
+    <span
+      className={cn("relative shrink-0", compact ? "h-5 w-5" : "h-8 w-8")}
+      aria-hidden="true"
+    >
+      <svg
+        className={cn("-rotate-90", compact ? "h-5 w-5" : "h-8 w-8")}
+        viewBox="0 0 32 32"
+      >
         <title>{label} allowance remaining</title>
         <circle
           className="stroke-muted"
@@ -95,7 +116,11 @@ function UsageRing({
   );
 }
 
-export function SidebarProviderUsageIndicator() {
+export function SidebarProviderUsageIndicator({
+  placement = "sidebar",
+}: {
+  placement?: "chrome" | "sidebar";
+}) {
   const preference = useProviderUsagePreference();
   const capabilitiesQuery = useQuery({
     queryKey: ["provider-usage-capabilities"],
@@ -112,9 +137,12 @@ export function SidebarProviderUsageIndicator() {
     queryFn: () => getProviderUsage(provider),
     enabled: supported,
     staleTime: FIVE_MINUTES,
+    refetchInterval: FIVE_MINUTES,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     retry: 1,
   });
+  const compact = placement === "chrome";
 
   const usage = query.data;
   const constrainingWindow = usage?.windows.reduce((lowest, window) =>
@@ -149,36 +177,60 @@ export function SidebarProviderUsageIndicator() {
               ? `${planLabel}: ${remainingPercent}% remaining`
               : (errorMessage ?? `Loading ${productLabel} allowance`)
           }
-          className="mb-2 flex w-full items-center gap-2 rounded-lg border border-sidebar-border/70 bg-sidebar-accent/35 px-2 py-2 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1"
+          className={cn(
+            "flex items-center gap-2 rounded-lg text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-sidebar-ring",
+            compact
+              ? "ml-auto h-[28px] w-auto border-0 bg-transparent px-2 py-0"
+              : "mb-2 w-full border border-sidebar-border/70 bg-sidebar-accent/35 px-2 py-2 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1",
+          )}
           data-testid="sidebar-provider-usage"
           type="button"
         >
           <UsageRing
+            compact={compact}
             isLoading={query.isPending && supported}
             label={productLabel}
             remainingPercent={remainingPercent}
           />
-          <span className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+          <span
+            className={cn(
+              "min-w-0 flex-1",
+              !compact && "group-data-[collapsible=icon]:hidden",
+            )}
+          >
             <span className="block truncate text-xs font-medium">
-              {errorMessage ?? planLabel}
+              {compact
+                ? remainingPercent !== undefined
+                  ? `${remainingPercent}% left`
+                  : errorMessage
+                    ? "Unavailable"
+                    : "Checking…"
+                : (errorMessage ?? planLabel)}
             </span>
-            <span
-              className={cn(
-                "block truncate text-sm font-semibold tabular-nums",
-                tone ? toneClasses[tone].text : "text-muted-foreground",
-              )}
-            >
-              {remainingPercent !== undefined
-                ? `${remainingPercent}% left`
-                : supported
-                  ? "Checking allowance…"
-                  : "Unavailable"}
-            </span>
+            {!compact ? (
+              <span
+                className={cn(
+                  "block truncate text-sm font-semibold tabular-nums",
+                  tone ? toneClasses[tone].text : "text-muted-foreground",
+                )}
+              >
+                {remainingPercent !== undefined
+                  ? `${remainingPercent}% left`
+                  : supported
+                    ? "Checking allowance…"
+                    : "Unavailable"}
+              </span>
+            ) : null}
           </span>
         </button>
       </PopoverTrigger>
 
-      <PopoverContent align="end" className="w-80" side="right" sideOffset={10}>
+      <PopoverContent
+        align="end"
+        className="w-80"
+        side={compact ? "bottom" : "right"}
+        sideOffset={10}
+      >
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="font-semibold">{planLabel}</p>

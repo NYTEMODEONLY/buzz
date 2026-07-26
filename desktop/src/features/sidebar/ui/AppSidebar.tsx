@@ -53,7 +53,6 @@ import {
 } from "@/features/sidebar/ui/sidebarLoadingSkeleton";
 import { useDeferredModalOpen } from "@/shared/ui/deferredModalOpen";
 import { SidebarUpdateCard } from "@/features/settings/SidebarUpdateCard";
-import { SidebarProviderUsageIndicator } from "@/features/provider-usage/ui/SidebarProviderUsageIndicator";
 import { useUpdaterContext } from "@/features/settings/hooks/UpdaterProvider";
 import { shouldShowSidebarUpdateCard } from "@/features/settings/sidebarUpdateCardVisibility";
 import type { SettingsSection } from "@/features/settings/ui/SettingsPanels";
@@ -889,9 +888,6 @@ export function AppSidebar({
                 />
               </div>
             ) : null}
-            <FeatureGate feature="providerUsage">
-              <SidebarProviderUsageIndicator />
-            </FeatureGate>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarProfileCard
