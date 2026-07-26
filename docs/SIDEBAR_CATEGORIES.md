@@ -25,6 +25,10 @@ Switching back to **A-Z** or **Recent** keeps the saved manual order for the
 next time Manual is selected. Forums and direct messages continue to use A-Z
 or Recent.
 
+Manual-mode channel rows remain fully painted while drag transforms are active.
+The non-draggable A-Z and Recent lists retain the row virtualization
+optimization.
+
 ## Persistence and privacy
 
 Categories, assignments, sort modes, and manual order are stored locally per
