@@ -449,7 +449,14 @@ export function ChannelGroupSection({
           {items.map((channel) => (
             <ContextMenu key={channel.id}>
               <ContextMenuTrigger asChild>
-                <SidebarMenuItem className="content-visibility-auto-row">
+                {/* WKWebView can retain a stale skipped-paint state when
+                    content-visibility and dnd-kit transforms reorder the same
+                    row. Manual lists are small, so keep draggable rows live. */}
+                <SidebarMenuItem
+                  className={
+                    draggable ? undefined : "content-visibility-auto-row"
+                  }
+                >
                   {draggable ? (
                     <DraggableChannelRow
                       channelId={channel.id}
