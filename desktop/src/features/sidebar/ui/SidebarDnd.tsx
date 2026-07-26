@@ -2,52 +2,109 @@
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   PointerSensor,
+  closestCenter,
   pointerWithin,
-  useDraggable,
   useDroppable,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
+import type { CollisionDetection } from "@dnd-kit/core";
 import {
   SortableContext,
   arrayMove,
+  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Hash } from "lucide-react";
+import { GripVertical, Hash } from "lucide-react";
 import * as React from "react";
 
 import { cn } from "@/shared/lib/cn";
+import type { ChannelSortGroupKey } from "@/features/sidebar/lib/channelSortPreference";
 
-export type DndChannelData = { type: "channel"; channelId: string };
+export type DndChannelData = {
+  type: "channel";
+  channelId: string;
+  groupKey: ChannelSortGroupKey;
+};
 export type DndSectionData = { type: "section"; sectionId: string };
-export type DndSectionDropData = { type: "section-drop"; sectionId: string };
-export type DndUngroupedData = { type: "ungrouped" };
+export type DndSectionDropData = {
+  type: "section-drop";
+  sectionId: string;
+  groupKey: ChannelSortGroupKey;
+};
+export type DndUngroupedData = {
+  type: "ungrouped";
+  groupKey: ChannelSortGroupKey;
+};
 
 export function DraggableChannelRow({
   channelId,
+  channelName,
+  groupKey,
   children,
 }: {
   channelId: string;
+  channelName: string;
+  groupKey: ChannelSortGroupKey;
   children: React.ReactNode;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    isDragging,
+    transform,
+    transition,
+  } = useSortable({
     id: channelId,
-    data: { type: "channel", channelId } satisfies DndChannelData,
+    data: { type: "channel", channelId, groupKey } satisfies DndChannelData,
   });
 
   return (
     <div
       ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      className={cn("touch-none", isDragging && "opacity-30")}
+      className={cn(
+        "relative [&_[data-sidebar=menu-button]]:pr-8",
+        isDragging && "opacity-30",
+      )}
+      data-dnd-channel={channelId}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
     >
       {children}
+      <button
+        {...attributes}
+        {...listeners}
+        aria-label={`Move ${channelName}`}
+        aria-roledescription="sortable channel"
+        className="absolute right-1 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 touch-none cursor-grab items-center justify-center rounded-md text-sidebar-foreground/40 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring active:cursor-grabbing"
+        data-dnd-handle={channelId}
+        type="button"
+      >
+        <GripVertical aria-hidden="true" className="h-4 w-4" />
+      </button>
     </div>
+  );
+}
+
+export function SortableChannelContext({
+  channelIds,
+  children,
+}: {
+  channelIds: string[];
+  children: React.ReactNode;
+}) {
+  return (
+    <SortableContext items={channelIds} strategy={verticalListSortingStrategy}>
+      {children}
+    </SortableContext>
   );
 }
 
@@ -61,9 +118,14 @@ export function DroppableSectionBody({
   className?: string;
 }) {
   const droppableId = `section-drop:${sectionId}`;
+  const groupKey = `section:${sectionId}` as const;
   const { setNodeRef, isOver } = useDroppable({
     id: droppableId,
-    data: { type: "section-drop", sectionId } satisfies DndSectionDropData,
+    data: {
+      type: "section-drop",
+      sectionId,
+      groupKey,
+    } satisfies DndSectionDropData,
   });
 
   return (
@@ -74,6 +136,7 @@ export function DroppableSectionBody({
         isOver && "ring-2 ring-primary/30",
         className,
       )}
+      data-testid={`section-drop-${sectionId}`}
     >
       {children}
     </div>
@@ -89,7 +152,10 @@ export function DroppableUngroupedBody({
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: "ungrouped",
-    data: { type: "ungrouped" } satisfies DndUngroupedData,
+    data: {
+      type: "ungrouped",
+      groupKey: "channels",
+    } satisfies DndUngroupedData,
   });
 
   return (
@@ -100,6 +166,7 @@ export function DroppableUngroupedBody({
         isOver && "ring-2 ring-primary/30",
         className,
       )}
+      data-testid="section-drop-channels"
     >
       {children}
     </div>
@@ -172,27 +239,84 @@ type SidebarDragItem =
   | { type: "channel"; channelId: string; channelName: string }
   | { type: "section"; sectionId: string; sectionName: string };
 
+const sidebarCollisionDetection: CollisionDetection = (args) => {
+  if (args.active.data.current?.type !== "channel") {
+    const sectionContainers = args.droppableContainers.filter((container) => {
+      const type = container.data.current?.type;
+      return (
+        container.id !== args.active.id &&
+        (type === "section" || type === "section-drop")
+      );
+    });
+    if (args.pointerCoordinates) {
+      return pointerWithin({
+        ...args,
+        droppableContainers: sectionContainers,
+      });
+    }
+    return closestCenter({
+      ...args,
+      droppableContainers: sectionContainers,
+    });
+  }
+  const collisions = args.pointerCoordinates
+    ? pointerWithin(args)
+    : closestCenter(args);
+
+  const channelCollision = collisions.find((collision) => {
+    if (collision.id === args.active.id) return false;
+    return (
+      args.droppableContainers.find(
+        (container) => container.id === collision.id,
+      )?.data.current?.type === "channel"
+    );
+  });
+  if (channelCollision) return [channelCollision];
+
+  const groupCollision = collisions.find((collision) => {
+    const type = args.droppableContainers.find(
+      (container) => container.id === collision.id,
+    )?.data.current?.type;
+    return type === "section-drop" || type === "ungrouped";
+  });
+  return groupCollision ? [groupCollision] : collisions;
+};
+
 export function SidebarDndContext({
   sectionIds,
   channels,
+  channelGroups,
   sections,
   children,
-  onAssignChannel,
-  onUnassignChannel,
+  manualGroupKeys,
+  onMoveChannel,
   onReorderSections,
 }: {
   sectionIds: string[];
   channels: { id: string; name: string }[];
+  channelGroups: {
+    key: ChannelSortGroupKey;
+    name: string;
+    channelIds: string[];
+  }[];
   sections: { id: string; name: string }[];
   children: React.ReactNode;
-  onAssignChannel: (channelId: string, sectionId: string) => void;
-  onUnassignChannel: (channelId: string) => void;
+  manualGroupKeys: ReadonlySet<ChannelSortGroupKey>;
+  onMoveChannel: (input: {
+    channelId: string;
+    sourceGroup: ChannelSortGroupKey;
+    targetGroup: ChannelSortGroupKey;
+    overChannelId?: string;
+  }) => void;
   onReorderSections: (orderedIds: string[]) => void;
 }) {
   const [activeDragItem, setActiveDragItem] =
     React.useState<SidebarDragItem | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
 
   const handleDragStart = React.useCallback(
@@ -230,11 +354,21 @@ export function SidebarDndContext({
       if (!activeData) return;
       if (activeData.type === "channel") {
         const channelId = activeData.channelId as string;
-        if (overData?.type === "section-drop") {
-          onAssignChannel(channelId, overData.sectionId as string);
-        } else if (overData?.type === "ungrouped") {
-          onUnassignChannel(channelId);
-        }
+        const sourceGroup = activeData.groupKey as ChannelSortGroupKey;
+        const targetGroup = overData?.groupKey as
+          | ChannelSortGroupKey
+          | undefined;
+        if (!targetGroup) return;
+        if (sourceGroup === targetGroup && !manualGroupKeys.has(sourceGroup))
+          return;
+        onMoveChannel({
+          channelId,
+          sourceGroup,
+          targetGroup,
+          ...(overData?.type === "channel"
+            ? { overChannelId: overData.channelId as string }
+            : {}),
+        });
       } else if (activeData.type === "section") {
         const overSectionId =
           (overData?.sectionId as string | undefined) ?? (over.id as string);
@@ -245,12 +379,109 @@ export function SidebarDndContext({
         }
       }
     },
-    [sectionIds, onAssignChannel, onUnassignChannel, onReorderSections],
+    [sectionIds, manualGroupKeys, onMoveChannel, onReorderSections],
+  );
+
+  const channelName = React.useCallback(
+    (id: string) =>
+      channels.find((channel) => channel.id === id)?.name ?? "channel",
+    [channels],
+  );
+  const sectionName = React.useCallback(
+    (id: string) =>
+      sections.find((section) => section.id === id)?.name ?? "category",
+    [sections],
+  );
+  const describeChannelDestination = React.useCallback(
+    (
+      activeChannelId: string,
+      over: {
+        id: string | number;
+        data: { current?: Record<string, unknown> };
+      },
+    ) => {
+      const data = over.data.current;
+      const targetGroup = data?.groupKey as ChannelSortGroupKey | undefined;
+      const group = channelGroups.find((entry) => entry.key === targetGroup);
+      if (!group) return "the sidebar";
+      const overChannelId =
+        data?.type === "channel" ? String(data.channelId) : undefined;
+      let index = group.channelIds.filter(
+        (id) => id !== activeChannelId,
+      ).length;
+      if (overChannelId) {
+        const overIndex = group.channelIds.indexOf(overChannelId);
+        if (overIndex !== -1) index = overIndex;
+      }
+      return `position ${index + 1} in category ${group.name}`;
+    },
+    [channelGroups],
+  );
+  const describeTarget = React.useCallback(
+    (over: {
+      id: string | number;
+      data: { current?: Record<string, unknown> };
+    }) => {
+      const data = over.data.current;
+      if (data?.type === "channel") {
+        return `channel ${channelName(String(data.channelId))}`;
+      }
+      if (data?.type === "section-drop") {
+        return `category ${sectionName(String(data.sectionId))}`;
+      }
+      if (data?.type === "ungrouped") return "Channels";
+      if (data?.type === "section") {
+        return `category ${sectionName(String(data.sectionId))}`;
+      }
+      return "the sidebar";
+    },
+    [channelName, sectionName],
   );
 
   return (
     <DndContext
-      collisionDetection={pointerWithin}
+      accessibility={{
+        announcements: {
+          onDragStart({ active }) {
+            const data = active.data.current;
+            return data?.type === "channel"
+              ? `Picked up channel ${channelName(String(data.channelId))}.`
+              : `Picked up category ${sectionName(String(data?.sectionId))}.`;
+          },
+          onDragOver({ active, over }) {
+            const activeData = active.data.current;
+            return over
+              ? activeData?.type === "channel"
+                ? `Channel ${channelName(String(activeData.channelId))} is over ${describeChannelDestination(String(activeData.channelId), over)}.`
+                : `Category ${sectionName(String(activeData?.sectionId))} is over ${describeTarget(over)}.`
+              : "The item is no longer over a drop target.";
+          },
+          onDragEnd({ active, over }) {
+            const data = active.data.current;
+            if (!over) return "Drag cancelled.";
+            if (data?.type === "channel") {
+              const group = data.groupKey as ChannelSortGroupKey;
+              const targetGroup = over.data.current?.groupKey as
+                | ChannelSortGroupKey
+                | undefined;
+              const name = channelName(String(data.channelId));
+              if (group === targetGroup && !manualGroupKeys.has(group)) {
+                return `${name} was not moved. Choose Manual sort to reorder within this category.`;
+              }
+              return `Moved channel ${name} to ${describeChannelDestination(String(data.channelId), over)}.`;
+            }
+            return `Moved category ${sectionName(String(data?.sectionId))} to ${describeTarget(over)}.`;
+          },
+          onDragCancel({ active }) {
+            const data = active.data.current;
+            return data?.type === "channel"
+              ? `Cancelled moving channel ${channelName(String(data.channelId))}.`
+              : `Cancelled moving category ${sectionName(String(data?.sectionId))}.`;
+          },
+        },
+      }}
+      onDragCancel={() => setActiveDragItem(null)}
+      collisionDetection={sidebarCollisionDetection}
       onDragEnd={handleDragEnd}
       onDragStart={handleDragStart}
       sensors={sensors}

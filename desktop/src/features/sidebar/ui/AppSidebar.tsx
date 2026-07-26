@@ -19,7 +19,7 @@ import {
   sectionSortGroupKey,
   sortChannelsForSidebar,
 } from "@/features/sidebar/lib/channelSortPreference";
-import { useChannelSortPreference } from "@/features/sidebar/lib/useChannelSortPreference";
+import { useSidebarChannelOrganization } from "@/features/sidebar/lib/useSidebarChannelOrganization";
 import { useSidebarScrollLock } from "@/features/sidebar/lib/useSidebarScrollLock";
 import { isSidebarBackgroundTarget } from "@/features/sidebar/lib/sidebarBackgroundTarget";
 import { useUnreadOverflow } from "@/features/sidebar/lib/useUnreadOverflow";
@@ -356,17 +356,6 @@ export function AppSidebar({
     unassignChannel,
   } = useChannelSections(currentPubkey, activeCommunity?.relayUrl);
 
-  const sectionIds = React.useMemo(
-    () => channelSections.map((s) => s.id),
-    [channelSections],
-  );
-
-  const { sortModeFor, setSortModeFor } = useChannelSortPreference(
-    currentPubkey,
-    activeCommunity?.relayUrl,
-    sectionIds,
-  );
-
   const [createSectionState, setCreateSectionState] = React.useState<{
     open: boolean;
     pendingChannelId: string | null;
@@ -382,47 +371,26 @@ export function AppSidebar({
       if (channel.id === selectedChannelId) onSelectHome();
     });
 
-  const streamChannels = React.useMemo(
-    () => channels.filter((channel) => channel.channelType === "stream"),
-    [channels],
-  );
-
-  const sectionBuckets = React.useMemo(() => {
-    const bySection: Record<string, Channel[]> = {};
-    const unassigned: Channel[] = [];
-    const sectionIds = new Set(channelSections.map((s) => s.id));
-
-    for (const channel of streamChannels) {
-      if (starredChannelIds?.has(channel.id)) continue;
-      const sectionId = channelAssignments[channel.id];
-      if (sectionId && sectionIds.has(sectionId)) {
-        if (!bySection[sectionId]) {
-          bySection[sectionId] = [];
-        }
-        bySection[sectionId].push(channel);
-      } else {
-        unassigned.push(channel);
-      }
-    }
-    // Apply each grouping's own sort preference; section membership itself
-    // is untouched.
-    for (const sectionId of Object.keys(bySection)) {
-      bySection[sectionId] = sortChannelsForSidebar(
-        bySection[sectionId],
-        sortModeFor(sectionSortGroupKey(sectionId)),
-      );
-    }
-    return {
-      bySection,
-      unassigned: sortChannelsForSidebar(unassigned, sortModeFor("channels")),
-    };
-  }, [
+  const {
+    sectionIds,
     streamChannels,
-    channelSections,
-    channelAssignments,
-    starredChannelIds,
+    sectionBuckets,
     sortModeFor,
-  ]);
+    setSortModeFor,
+    handleSortModeChange,
+    manualGroupKeys,
+    handleMoveChannel,
+    preserveDeletedSectionOrder,
+  } = useSidebarChannelOrganization({
+    pubkey: currentPubkey,
+    relayUrl: activeCommunity?.relayUrl,
+    channels,
+    sections: channelSections,
+    assignments: channelAssignments,
+    starredChannelIds,
+    assignChannel,
+    unassignChannel,
+  });
 
   const starredChannels = React.useMemo(() => {
     if (!starredChannelIds || starredChannelIds.size === 0) return [];
@@ -431,6 +399,23 @@ export function AppSidebar({
       sortModeFor("starred"),
     );
   }, [streamChannels, starredChannelIds, sortModeFor]);
+  const channelGroups = React.useMemo(
+    () => [
+      {
+        key: "channels" as const,
+        name: "Channels",
+        channelIds: sectionBuckets.unassigned.map((channel) => channel.id),
+      },
+      ...channelSections.map((section) => ({
+        key: `section:${section.id}` as const,
+        name: section.name,
+        channelIds: (sectionBuckets.bySection[section.id] ?? []).map(
+          (channel) => channel.id,
+        ),
+      })),
+    ],
+    [channelSections, sectionBuckets],
+  );
 
   const handleCreateSectionForChannel = React.useCallback(
     (channelId: string) => {
@@ -658,11 +643,12 @@ export function AppSidebar({
                     />
                   ) : null}
                   <SidebarDndContext
+                    channelGroups={channelGroups}
                     channels={channels}
                     sections={channelSections}
                     sectionIds={sectionIds}
-                    onAssignChannel={assignChannel}
-                    onUnassignChannel={unassignChannel}
+                    manualGroupKeys={manualGroupKeys}
+                    onMoveChannel={handleMoveChannel}
                     onReorderSections={reorderSections}
                   >
                     {channelSections.map((section, idx) => (
@@ -687,7 +673,11 @@ export function AppSidebar({
                         isLast={idx === channelSections.length - 1}
                         sortMode={sortModeFor(sectionSortGroupKey(section.id))}
                         onSortModeChange={(mode) =>
-                          setSortModeFor(sectionSortGroupKey(section.id), mode)
+                          handleSortModeChange(
+                            sectionSortGroupKey(section.id),
+                            mode,
+                            sectionBuckets.bySection[section.id] ?? [],
+                          )
                         }
                         onToggleCollapsed={() =>
                           toggleCollapsedSection(section.id)
@@ -736,7 +726,11 @@ export function AppSidebar({
                       items={sectionBuckets.unassigned}
                       sortMode={sortModeFor("channels")}
                       onSortModeChange={(mode) =>
-                        setSortModeFor("channels", mode)
+                        handleSortModeChange(
+                          "channels",
+                          mode,
+                          sectionBuckets.unassigned,
+                        )
                       }
                       actionsTestId="section-actions-channels"
                       listTestId="stream-list"
@@ -757,6 +751,14 @@ export function AppSidebar({
                       onAssignChannel={assignChannel}
                       onUnassignChannel={unassignChannel}
                       onCreateSectionForChannel={handleCreateSectionForChannel}
+                      onCreateCategory={() =>
+                        setCreateSectionState({
+                          open: true,
+                          pendingChannelId: null,
+                        })
+                      }
+                      groupKey="channels"
+                      manualSortEnabled
                       mutedChannelIds={mutedChannelIds}
                       onMuteChannel={onMuteChannel}
                       onUnmuteChannel={onUnmuteChannel}
@@ -935,6 +937,7 @@ export function AppSidebar({
       />
 
       <CreateSectionDialog
+        existingNames={channelSections.map((section) => section.name)}
         open={createSectionState.open}
         onOpenChange={(open) => {
           if (!open) {
@@ -945,6 +948,7 @@ export function AppSidebar({
       />
 
       <RenameSectionDialog
+        existingNames={channelSections.map((section) => section.name)}
         open={renameSectionTarget !== null}
         onOpenChange={(open) => {
           if (!open) setRenameSectionTarget(null);
@@ -972,6 +976,7 @@ export function AppSidebar({
         }
         onConfirm={() => {
           if (deleteSectionTarget) {
+            preserveDeletedSectionOrder(deleteSectionTarget.id);
             deleteSection(deleteSectionTarget.id);
             setCollapsedSections((prev) => {
               const next = { ...prev };

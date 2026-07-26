@@ -100,6 +100,7 @@ export default defineConfig({
         "**/drafts-screenshots.spec.ts",
         "**/buzz-theme-screenshots.spec.ts",
         "**/channel-sort.spec.ts",
+        "**/channel-categories-manual-order.spec.ts",
         "**/identity-lost.spec.ts",
         "**/deep-link-invite.spec.ts",
         "**/invite-qr-download.spec.ts",

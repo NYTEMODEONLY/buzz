@@ -46,6 +46,7 @@ type SectionNameDialogProps = {
   initialIcon?: string;
   confirmLabel: string;
   isConfirmDisabled: (trimmed: string, icon: string) => boolean;
+  getNameError?: (trimmed: string) => string | null;
   onConfirm: (value: SectionDialogValue) => void;
 };
 
@@ -58,12 +59,16 @@ function SectionNameDialog({
   initialIcon = "",
   confirmLabel,
   isConfirmDisabled,
+  getNameError,
   onConfirm,
 }: SectionNameDialogProps) {
   const [name, setName] = React.useState(initialValue);
   const [icon, setIcon] = React.useState(initialIcon);
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const inputId = React.useId();
+  const errorId = `${inputId}-error`;
+  const nameError = name.trim() ? getNameError?.(name.trim()) : null;
 
   React.useEffect(() => {
     if (!open) {
@@ -108,7 +113,7 @@ function SectionNameDialog({
               <div className="relative shrink-0">
                 <PopoverTrigger asChild>
                   <button
-                    aria-label="Choose section icon"
+                    aria-label="Choose category icon"
                     className="flex h-9 w-9 items-center justify-center rounded-md border border-input text-lg transition-colors hover:bg-accent"
                     type="button"
                   >
@@ -121,7 +126,7 @@ function SectionNameDialog({
                 </PopoverTrigger>
                 {icon ? (
                   <button
-                    aria-label="Clear section icon"
+                    aria-label="Clear category icon"
                     className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-background bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
                     onClick={(event) => {
                       event.stopPropagation();
@@ -142,17 +147,32 @@ function SectionNameDialog({
               </PopoverContent>
             </Popover>
             <Input
+              aria-describedby={nameError ? errorId : undefined}
+              aria-invalid={nameError ? true : undefined}
               autoCapitalize="none"
               autoComplete="off"
               autoCorrect="off"
               className="flex-1"
+              id={inputId}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Section name"
+              placeholder="Category name"
               ref={inputRef}
               spellCheck={false}
               value={name}
             />
           </div>
+          <label className="sr-only" htmlFor={inputId}>
+            Category name
+          </label>
+          {nameError ? (
+            <p
+              className="mt-2 text-sm text-destructive"
+              id={errorId}
+              role="alert"
+            >
+              {nameError}
+            </p>
+          ) : null}
           <div className="flex justify-end gap-2 mt-4">
             <DialogClose asChild>
               <Button variant="ghost" type="button">
@@ -176,22 +196,32 @@ export type CreateSectionDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (value: SectionDialogValue) => void;
+  existingNames?: string[];
 };
 
 export function CreateSectionDialog({
   open,
   onOpenChange,
   onConfirm,
+  existingNames = [],
 }: CreateSectionDialogProps) {
+  const names = new Set(existingNames.map((name) => name.trim().toLowerCase()));
   return (
     <SectionNameDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Create section"
-      description="Sections let you group related channels in the sidebar."
+      title="Create category"
+      description="Categories group related channels in your sidebar."
       initialValue=""
       confirmLabel="Create"
-      isConfirmDisabled={(trimmed) => trimmed.length === 0}
+      isConfirmDisabled={(trimmed) =>
+        trimmed.length === 0 || names.has(trimmed.toLowerCase())
+      }
+      getNameError={(trimmed) =>
+        names.has(trimmed.toLowerCase())
+          ? "A category with this name already exists."
+          : null
+      }
       onConfirm={onConfirm}
     />
   );
@@ -203,6 +233,7 @@ export type RenameSectionDialogProps = {
   sectionName: string;
   sectionIcon?: string;
   onConfirm: (value: SectionDialogValue) => void;
+  existingNames?: string[];
 };
 
 export function RenameSectionDialog({
@@ -211,19 +242,34 @@ export function RenameSectionDialog({
   sectionName,
   sectionIcon,
   onConfirm,
+  existingNames = [],
 }: RenameSectionDialogProps) {
+  const names = new Set(
+    existingNames
+      .filter(
+        (name) =>
+          name.trim().toLowerCase() !== sectionName.trim().toLowerCase(),
+      )
+      .map((name) => name.trim().toLowerCase()),
+  );
   return (
     <SectionNameDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Rename section"
-      description="Enter a new name for this section."
+      title="Rename category"
+      description="Enter a new name for this category."
       initialValue={sectionName}
       initialIcon={sectionIcon}
       confirmLabel="Save"
       isConfirmDisabled={(trimmed, icon) =>
         trimmed.length === 0 ||
+        names.has(trimmed.toLowerCase()) ||
         (trimmed === sectionName && icon === (sectionIcon ?? ""))
+      }
+      getNameError={(trimmed) =>
+        names.has(trimmed.toLowerCase())
+          ? "A category with this name already exists."
+          : null
       }
       onConfirm={onConfirm}
     />
@@ -249,14 +295,14 @@ export function DeleteSectionAlertDialog({
     channelCount === 1 ? "1 channel" : `${channelCount} channels`;
   const description =
     channelCount === 0
-      ? `Delete section "${sectionName}"? It has no channels.`
-      : `Delete section "${sectionName}"? Its ${channelLabel} will move back to the default Channels group.`;
+      ? `Delete category "${sectionName}"? It has no channels.`
+      : `Delete category "${sectionName}"? Its ${channelLabel} will move back to the default Channels group.`;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete section</AlertDialogTitle>
+          <AlertDialogTitle>Delete category</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
