@@ -46,6 +46,7 @@ pub(crate) const KNOWN_AGENT_BINARIES: &[&str] = &[
     "codex-acp",
     "codex_acp",
     "goose",
+    "grok",
     "hermes",
     "hermes-acp",
     "hermes_acp",
@@ -55,7 +56,6 @@ pub(crate) const KNOWN_AGENT_BINARIES: &[&str] = &[
     "buzz-dev-mcp",
     "buzz_dev_mcp",
 ];
-
 /// Script interpreters that may host managed agent wrappers (e.g. npm shims).
 /// A process whose name matches here is NOT immediately claimed — it must also
 /// carry `BUZZ_MANAGED_AGENT` in its environment (checked by the caller via

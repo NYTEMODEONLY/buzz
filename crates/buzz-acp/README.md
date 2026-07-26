@@ -99,6 +99,32 @@ buzz-acp
 Older installs that still expose `claude-code-acp` are also supported. `buzz-acp`
 treats both Claude ACP command names as the same zero-arg runtime.
 
+## Running with Grok Build
+
+[Grok Build](https://docs.x.ai/build/overview) speaks ACP natively and is
+currently powered by Grok 4.5.
+
+```bash
+# Install and authenticate with the official xAI CLI.
+curl -fsSL https://x.ai/cli/install.sh | bash
+grok login
+
+export BUZZ_ACP_AGENT_COMMAND="grok"
+export BUZZ_ACP_AGENT_ARGS="agent,--always-approve,stdio"
+buzz-acp
+```
+
+Buzz Desktop discovers the `grok` binary, including installs under
+`~/.grok/bin`, and exposes **Grok Build** as a first-class harness. It never
+claims Grok's generic `agent` PATH shim. The managed default uses
+`--always-approve` because the spawned ACP process has no interactive TTY for
+tool-permission prompts.
+
+Grok Build currently has no reliable non-interactive authentication-status
+command: `grok models` exits successfully even while reporting logged out.
+Authenticate with `grok login` or provide `XAI_API_KEY` before starting an
+agent.
+
 ## Running with Hermes Agent
 
 [Hermes Agent](https://github.com/NousResearch/hermes-agent) includes a native

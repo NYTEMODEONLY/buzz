@@ -299,7 +299,10 @@ const overrides = new Map([
   // Buzz-managed Node path helpers and resolution tests moved to
   // managed_node_paths.rs and discovery/tests/managed_path_resolution.rs;
   // ratcheting 1366 -> 1392 after adding the managed-path probes to discovery.
-  ["src-tauri/src/managed_agents/discovery.rs", 1393],
+  // Grok Build is isolated in discovery/grok.rs; nine catalog wiring lines
+  // remain here for module registration, PATH discovery, and default-arg
+  // normalization. The runtime implementation and tests stay in split modules.
+  ["src-tauri/src/managed_agents/discovery.rs", 1402],
   // rebase over codex-acp-package-swap: its version-probe tests union with the
   // doctor-install-reliability nvm/login-shell/semver tests — each side alone
   // stayed under the 1000 default; the union exceeds it.

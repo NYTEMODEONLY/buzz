@@ -10,6 +10,7 @@ use crate::managed_agents::{
 };
 
 mod runtime_metadata;
+mod grok;
 
 pub(crate) use runtime_metadata::KnownAcpRuntime;
 
@@ -42,6 +43,7 @@ fn common_binary_paths() -> &'static [PathBuf] {
                 home.join(".local/bin"),
                 home.join(".volta/bin"),
                 home.join(".asdf/shims"),
+                home.join(".grok/bin"),
             ]);
         }
         // Windows well-known dirs for npm global shims and standalone installer targets.
@@ -159,6 +161,7 @@ const KNOWN_ACP_RUNTIMES: &[KnownAcpRuntime] = &[
         // Verified: `codex login status` exits 0 when logged in, non-zero otherwise.
         auth_probe_args: Some(&["codex", "login", "status"]),
     },
+    grok::RUNTIME,
     KnownAcpRuntime {
         id: "hermes",
         label: "Hermes Agent",
@@ -376,7 +379,11 @@ mod overrides;
 pub use overrides::{apply_agent_command_update, create_time_agent_command_override};
 
 fn default_agent_args(command: &str) -> Option<Vec<String>> {
-    match normalize_command_identity(command).as_str() {
+    let identity = normalize_command_identity(command);
+    if grok::matches(identity.as_str()) {
+        return Some(grok::default_args());
+    }
+    match identity.as_str() {
         "goose" | "hermes" => Some(vec!["acp".to_string()]),
         "codex" | "codex-acp" | "claude-agent-acp" | "claude-code-acp" | "claude-code"
         | "claudecode" | "hermes-acp" | "buzz-agent" => Some(Vec::new()),
@@ -398,6 +405,9 @@ pub fn normalize_agent_args(command: &str, agent_args: Vec<String>) -> Vec<Strin
         .map(|arg| arg.trim().to_string())
         .filter(|arg| !arg.is_empty())
         .collect::<Vec<_>>();
+    if grok::matches(normalize_command_identity(command).as_str()) {
+        return grok::normalize_args(normalized);
+    }
 
     let Some(default_args) = default_agent_args(command) else {
         return normalized;

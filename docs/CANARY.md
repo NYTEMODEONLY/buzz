@@ -16,13 +16,15 @@ distribution-only commits.
 
 ## Custom stack
 
-Canary currently carries five product feature tracks:
+Canary currently carries six product feature tracks:
 
 1. Hermes ACP runtime and first-class external-agent presentation.
 2. Detached external-agent activity visibility.
 3. A local provider allowance indicator, including the global top-chrome meter.
 4. Sidebar categories and exact manual channel ordering.
-5. Cross-install agent identity continuity: another Buzz installation owned by
+5. Grok Build as a native ACP harness, including onboarding selection and
+   Grok 4.5 model discovery.
+6. Cross-install agent identity continuity: another Buzz installation owned by
    the same human reuses the canonical relay identities instead of minting a
    second Welcome Team.
 

@@ -26,7 +26,7 @@
 
 ## Canary features
 
-The current Canary carries **four product feature tracks** plus the
+The current Canary carries **six product feature tracks** plus the
 distribution-only isolation and attribution needed to ship them safely:
 
 | Feature | Current source state |
@@ -35,11 +35,13 @@ distribution-only isolation and attribution needed to ship them safely:
 | Detached external-agent activity visibility | Integrated as a dependent Canary patch |
 | Local provider allowance indicator | Codex supported; Claude and Grok shown honestly as unsupported; proposed upstream in [block/buzz#2765](https://github.com/block/buzz/pull/2765) |
 | Sidebar categories and manual channel order | Integrated; pointer and keyboard reordering, hover-only drag handles, and encrypted per-community sync; proposed upstream in [block/buzz#2947](https://github.com/block/buzz/pull/2947) |
+| Grok Build ACP harness | Integrated; native `grok agent --always-approve stdio`, Grok 4.5 model discovery, onboarding selection, and xAI login guidance; proposed upstream in [block/buzz#2546](https://github.com/block/buzz/pull/2546) |
+| Cross-install agent identity continuity | Integrated; reuses owner-managed relay identities instead of minting duplicate Welcome Team agents |
 | Canary footer attribution | `canary by nytemode` links to [nytemode.com](https://nytemode.com) |
 | Official-Buzz isolation | Separate bundle data, keyring, deep links, release links, and updater trust |
 
 See the evidence-bound [feature inventory](docs/CANARY_FEATURES.md) for source
-commits, all three current upstream PRs, limitations, and release proof status.
+commits, all four current upstream PRs, limitations, and release proof status.
 See [Sidebar categories and manual order](docs/SIDEBAR_CATEGORIES.md) for the
 user workflow and persistence contract.
 
@@ -130,7 +132,7 @@ Agents are part of the room, not haunted cron jobs.
 |---|---|---|
 | Relay, channels, threads, DMs, canvases, media, search, audit log | Mobile clients (iOS + Android, Flutter) | Web-of-trust reputation across relays |
 | Desktop app (Tauri + React) | Workflow approval gates (infra exists, glue still drying) | Push notifications |
-| `buzz-cli` (agent-first, JSON in / JSON out) + ACP harness (Goose, Codex, Claude Code, Hermes) | Huddle lifecycle events | Culture features |
+| `buzz-cli` (agent-first, JSON in / JSON out) + ACP harness (Goose, Codex, Claude Code, Grok Build, Hermes) | Huddle lifecycle events | Culture features |
 | YAML workflows: message / reaction / schedule / webhook triggers | | |
 | Git events (NIP-34: patches, repo announcements, status) | | |
 | Git hosting backend | | |
@@ -240,7 +242,7 @@ A Rust workspace of focused crates. Single source of truth: the relay. See [ARCH
 
 **Services** — `buzz-db` (Postgres) · `buzz-auth` (NIP-42/98 Schnorr auth, rate limiting) · `buzz-pubsub` (Redis, presence, typing) · `buzz-search` (Postgres FTS) · `buzz-audit` (hash-chain log). Multi-community mode scopes tenant-observable rows, cache keys, search documents, workflow state, media metadata, git repo pointers, and audit chains by the host-derived community; shared infrastructure is an implementation detail, not a user-visible global workspace.
 
-**Agent surface** — `buzz-cli` (agent-first CLI, JSON in / JSON out) · `buzz-acp` (ACP harness for Goose/Codex/Claude Code/Hermes) · `buzz-agent` (ACP agent — see [VISION_AGENT.md](VISION_AGENT.md)) · `buzz-dev-mcp` (shell + file-edit tools) · `buzz-workflow` (YAML automation) · `buzz-persona` (agent persona packs)
+**Agent surface** — `buzz-cli` (agent-first CLI, JSON in / JSON out) · `buzz-acp` (ACP harness for Goose/Codex/Claude Code/Grok Build/Hermes) · `buzz-agent` (ACP agent — see [VISION_AGENT.md](VISION_AGENT.md)) · `buzz-dev-mcp` (shell + file-edit tools) · `buzz-workflow` (YAML automation) · `buzz-persona` (agent persona packs)
 
 **Git & pairing** — `git-sign-nostr` / `git-credential-nostr` (nostr-signed git) · `buzz-pair-relay` / `buzz-pairing-cli` (relay pairing)
 

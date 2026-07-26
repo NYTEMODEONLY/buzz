@@ -49,9 +49,10 @@ Before describing auto-update as working:
 2. Publish signed Canary N+1 and its fork-owned manifest.
 3. Use Settings to detect, download, install, and relaunch N+1.
 4. Verify the installed executable corresponds to the released source SHA.
-5. Verify footer attribution, provider allowance, Hermes/external-agent cards,
-   detached activity, sidebar category creation/rename/delete, manual channel
-   ordering, hover/focus/touch drag-handle behavior, channels, DMs, and restart
+5. Verify footer attribution, provider allowance, Grok Build discovery and
+   `grok-4.5` model selection, Hermes/external-agent cards, detached activity,
+   sidebar category creation/rename/delete, manual channel ordering,
+   hover/focus/touch drag-handle behavior, channels, DMs, and restart
    persistence.
 6. Verify official Buzz app data and keyring entries remain untouched.
 7. With the same human identity signed into official Buzz and Canary, verify

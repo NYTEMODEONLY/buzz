@@ -15,6 +15,9 @@
 - Added detached external-agent activity transport.
 - Added local provider allowance visibility for Codex with honest unsupported
   states for Claude and Grok.
+- Added Grok Build as a first-class native ACP harness with onboarding
+  selection, Grok 4.5 model discovery, managed headless defaults, and xAI
+  authentication guidance.
 - Added Canary-only footer attribution to nytemode.
 - Isolated Canary app data, keyring, deep links, release links, and updater
   trust from official Buzz.
