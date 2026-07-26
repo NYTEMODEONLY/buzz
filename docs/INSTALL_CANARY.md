@@ -43,6 +43,9 @@ Expected side-by-side result:
    directory, even if their durable Nostr profiles remain on the relay.
 6. Local persona launch controls are absent for every owner-managed agent
    already hosted by the other installation.
+7. An owner-managed agent with a kind `30177` declaration but no usable kind
+   `10100` directory profile still appears under its canonical pubkey as
+   `Managed elsewhere`.
 
 If an older Canary already minted duplicates, compare all local and canonical
 pubkeys first. Delete/archive only the Canary-owned replacements, verify the

@@ -4,7 +4,10 @@ use buzz_core_pkg::kind::KIND_MANAGED_AGENT;
 use tauri::State;
 
 use crate::{
-    app_state::AppState, managed_agents::RelayAgentInfo, nostr_convert, relay::query_relay,
+    app_state::AppState,
+    managed_agents::{agent_events::ManagedAgentEventContent, RelayAgentInfo},
+    nostr_convert,
+    relay::query_relay,
 };
 
 const RELAY_AGENT_FETCH_LIMIT: usize = 500;
@@ -72,12 +75,46 @@ pub async fn list_relay_agents(state: State<'_, AppState>) -> Result<Vec<RelayAg
     let mut agents: Vec<RelayAgentInfo> =
         serde_json::from_value(agents).map_err(|e| format!("agent parse failed: {e}"))?;
     for agent in &mut agents {
-        if let Some(persona_id) = owner_managed_agents.get(&agent.pubkey) {
+        if let Some(managed) = owner_managed_agents.get(&agent.pubkey) {
             agent.is_owner_managed = true;
-            agent.owner_managed_persona_id = persona_id.clone();
+            agent.owner_managed_persona_id = managed.persona_id.clone();
         }
     }
+    append_missing_owner_managed_agents(&mut agents, &owner_managed_agents, &owner_pubkey);
     Ok(agents)
+}
+
+fn append_missing_owner_managed_agents(
+    agents: &mut Vec<RelayAgentInfo>,
+    owner_managed_agents: &HashMap<String, ManagedAgentEventContent>,
+    owner_pubkey: &str,
+) {
+    for (pubkey, managed) in owner_managed_agents {
+        if agents.iter().any(|agent| agent.pubkey == *pubkey) {
+            continue;
+        }
+
+        // A kind:30177 coordinate is independently sufficient to identify an
+        // owner-managed agent. Its kind:10100 directory profile may be absent,
+        // policy-only, or temporarily omitted by relay retention. Preserve
+        // the canonical pubkey with the public managed declaration instead of
+        // falling back to a same-persona local launch card.
+        agents.push(RelayAgentInfo {
+            pubkey: pubkey.clone(),
+            name: managed.name.clone(),
+            avatar_url: None,
+            owner_pubkey: Some(owner_pubkey.to_string()),
+            is_owner_managed: true,
+            owner_managed_persona_id: managed.persona_id.clone(),
+            agent_type: "agent".to_string(),
+            channels: vec![],
+            channel_ids: vec![],
+            capabilities: vec![],
+            status: "offline".to_string(),
+            respond_to: Some(managed.respond_to),
+            respond_to_allowlist: managed.respond_to_allowlist.clone(),
+        });
+    }
 }
 
 fn latest_directory_events(events: impl IntoIterator<Item = nostr::Event>) -> Vec<nostr::Event> {
@@ -100,7 +137,7 @@ fn latest_directory_events(events: impl IntoIterator<Item = nostr::Event>) -> Ve
 fn owner_managed_agents(
     events: &[nostr::Event],
     owner_pubkey: &str,
-) -> HashMap<String, Option<String>> {
+) -> HashMap<String, ManagedAgentEventContent> {
     events
         .iter()
         .filter(|event| {
@@ -118,11 +155,10 @@ fn owner_managed_agents(
                     .ok()
                     .map(|parsed| parsed.to_hex())
             })?;
-            let persona_id =
+            let managed =
                 crate::managed_agents::agent_events::managed_agent_content_from_event(event)
-                    .ok()
-                    .and_then(|content| content.persona_id);
-            Some((pubkey, persona_id))
+                    .ok()?;
+            Some((pubkey, managed))
         })
         .collect()
 }
@@ -163,9 +199,50 @@ mod tests {
         let agents =
             owner_managed_agents(&[managed, foreign, malformed], &owner.public_key().to_hex());
 
+        assert_eq!(agents.len(), 1);
         assert_eq!(
-            agents,
-            HashMap::from([(managed_agent, Some("builtin:fizz".to_string()))])
+            agents
+                .get(&managed_agent)
+                .and_then(|agent| agent.persona_id.as_deref()),
+            Some("builtin:fizz")
+        );
+        assert_eq!(
+            agents.get(&managed_agent).map(|agent| agent.name.as_str()),
+            Some("MUSE")
+        );
+    }
+
+    #[test]
+    fn missing_directory_profile_still_yields_canonical_managed_agent() {
+        let owner = nostr::Keys::generate();
+        let canonical = nostr::Keys::generate().public_key().to_hex();
+        let managed = ManagedAgentEventContent {
+            name: "MUSE".to_string(),
+            persona_id: Some("builtin:fizz".to_string()),
+            system_prompt: None,
+            model: None,
+            provider: None,
+            persona_source_version: None,
+            parallelism: 24,
+            respond_to: crate::managed_agents::RespondTo::OwnerOnly,
+            respond_to_allowlist: vec![],
+        };
+        let managed_agents = HashMap::from([(canonical.clone(), managed)]);
+        let mut agents = vec![];
+
+        append_missing_owner_managed_agents(
+            &mut agents,
+            &managed_agents,
+            &owner.public_key().to_hex(),
+        );
+
+        assert_eq!(agents.len(), 1);
+        assert_eq!(agents[0].pubkey, canonical);
+        assert_eq!(agents[0].name, "MUSE");
+        assert!(agents[0].is_owner_managed);
+        assert_eq!(
+            agents[0].owner_managed_persona_id.as_deref(),
+            Some("builtin:fizz")
         );
     }
 

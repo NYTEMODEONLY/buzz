@@ -125,6 +125,9 @@ without a parallel TypeScript runtime list.
    local launch controls for a persona already declared by an owner-managed
    remote agent. Broad directory queries may hit relay result caps, so fetch
    owner-managed kind `10100` profiles by their exact authors as a second lane.
+   Kind `30177` remains identity-authoritative when a usable kind `10100`
+   profile is missing: synthesize the minimal managed card from the declaration
+   and preserve its canonical pubkey instead of exposing a local launch path.
    Relay-authoritative archived identities stay out of forward-looking agent
    discovery even while their durable directory profiles remain. The directory
    card's runtime label comes from kind `10100` `agent_type`.

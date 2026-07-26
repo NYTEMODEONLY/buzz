@@ -67,6 +67,9 @@ relay, Canary:
 - shows the existing identities as `Managed elsewhere`;
 - fetches each owner-declared agent profile by its exact pubkey so an older
   canonical profile cannot be lost behind a broad relay-directory result cap;
+- treats the owner's kind `30177` managed-agent declaration as sufficient to
+  preserve the canonical card when that agent has no usable kind `10100`
+  directory profile;
 - hides relay-archived identities even when their durable directory profiles
   remain available for history;
 - hides local launch controls for personas already represented by those remote
