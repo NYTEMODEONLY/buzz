@@ -37,3 +37,8 @@ application data:
 
 Corrupt or missing order data fails safely to deterministic A-Z rendering and
 cannot remove a channel or alter its membership.
+
+Explicit local category edits remain authoritative while an initial or
+reconnect fetch is in flight. Buzz observes the remote timestamp, publishes the
+local edit with a strictly newer timestamp, and then resumes normal remote
+updates.
