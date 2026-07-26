@@ -185,6 +185,13 @@ test.describe("sidebar categories and manual channel order", () => {
     const [firstChannel, secondChannel] = initialOrder;
     const firstRow = draggableChannel(page, firstChannel);
     const firstHandle = channelDragHandle(page, firstChannel);
+    const channelRows = list.locator("[data-dnd-channel]").locator("..");
+    const manualRowVisibility = await channelRows.evaluateAll((rows) =>
+      rows.map((row) => getComputedStyle(row).contentVisibility),
+    );
+    expect(manualRowVisibility).toEqual(
+      Array(manualRowVisibility.length).fill("visible"),
+    );
     await expect(firstRow).not.toHaveClass(/touch-none/);
     await expect(firstHandle).toHaveClass(/touch-none/);
     await dragOver(page, firstHandle, draggableChannel(page, secondChannel));
@@ -194,6 +201,14 @@ test.describe("sidebar categories and manual channel order", () => {
     await expect(page.getByRole("status")).toContainText(
       `Moved channel ${firstChannel} to position 2 in category Channels.`,
     );
+    expect(
+      await channelRows.evaluateAll((rows) =>
+        rows.map((row) => getComputedStyle(row).contentVisibility),
+      ),
+    ).toEqual(Array(manualRowVisibility.length).fill("visible"));
+    for (const channelName of await channelNames(list)) {
+      await expect(page.getByTestId(`channel-${channelName}`)).toBeVisible();
+    }
 
     const persisted = await page.evaluate(
       ({ sortKey, orderKey }) => ({
