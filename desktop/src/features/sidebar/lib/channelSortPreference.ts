@@ -3,7 +3,8 @@ import type { Channel } from "@/shared/api/types";
 
 const STORAGE_KEY_PREFIX = "buzz-channel-sort.v1";
 
-export type ChannelSortMode = "alpha" | "recent";
+export type ChannelSortMode = "alpha" | "recent" | "manual";
+type PersistedChannelSortMode = Exclude<ChannelSortMode, "manual">;
 
 /**
  * Key identifying a sidebar grouping that carries its own sort preference.
@@ -18,7 +19,7 @@ export type ChannelSortGroupKey =
 
 export type ChannelSortStore = {
   version: 1;
-  groups: Record<string, ChannelSortMode>;
+  groups: Record<string, PersistedChannelSortMode>;
 };
 
 export const DEFAULT_SORT_MODE: ChannelSortMode = "alpha";
@@ -72,13 +73,13 @@ export function parseChannelSortPayload(
   if (typeof json !== "object" || json === null) return null;
   const obj = json as Record<string, unknown>;
   if (obj.version !== 1) return null;
-  const groups: Record<string, ChannelSortMode> =
+  const groups: Record<string, PersistedChannelSortMode> =
     typeof obj.groups === "object" &&
     obj.groups !== null &&
     !Array.isArray(obj.groups)
       ? Object.fromEntries(
           Object.entries(obj.groups as Record<string, unknown>).filter(
-            (entry): entry is [string, ChannelSortMode] =>
+            (entry): entry is [string, PersistedChannelSortMode] =>
               entry[1] === "alpha" || entry[1] === "recent",
           ),
         )
@@ -118,7 +119,7 @@ export function writeChannelSortStore(
 export function sortModeForGroup(
   store: ChannelSortStore,
   group: ChannelSortGroupKey,
-): ChannelSortMode {
+): PersistedChannelSortMode {
   return store.groups[group] ?? DEFAULT_SORT_MODE;
 }
 
@@ -143,7 +144,7 @@ export function sortChannelsForSidebar(
   channels: Channel[],
   mode: ChannelSortMode,
 ): Channel[] {
-  if (mode === "alpha") {
+  if (mode === "alpha" || mode === "manual") {
     return [...channels].sort(compareChannelsByName);
   }
   return [...channels].sort((left, right) => {

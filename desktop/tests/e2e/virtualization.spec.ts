@@ -163,6 +163,9 @@ test.describe("list virtualization", () => {
     await expect(topHeader).toBeVisible();
     await expect(bottomHeader).toBeVisible();
     await expect(headers).toHaveCount(2);
+    await topHeader.evaluate((element) =>
+      element.scrollIntoView({ block: "center" }),
+    );
 
     const sectionOrder = async () =>
       headers.evaluateAll((rows) =>
@@ -173,7 +176,6 @@ test.describe("list virtualization", () => {
         ),
       );
     expect(await sectionOrder()).toEqual(["Priority", "Archive"]);
-
     // Drag "Priority" past "Archive" — onDragEnd commits arrayMove and persists
     // the new order. The drop must land for the order to flip.
     await dragOver(page, topHeader, bottomHeader);
