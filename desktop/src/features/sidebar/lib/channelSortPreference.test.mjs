@@ -44,6 +44,16 @@ test("parseChannelSortPayload: valid per-group payload", () => {
   );
 });
 
+test("parseChannelSortPayload: manual is owned by the separate order store", () => {
+  assert.deepEqual(
+    parseChannelSortPayload({
+      version: 1,
+      groups: { channels: "manual", dms: "recent" },
+    }),
+    { version: 1, groups: { dms: "recent" } },
+  );
+});
+
 test("parseChannelSortPayload: empty groups is valid", () => {
   assert.deepEqual(parseChannelSortPayload({ version: 1, groups: {} }), {
     version: 1,
