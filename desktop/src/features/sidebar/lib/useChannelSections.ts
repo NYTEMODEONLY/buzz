@@ -84,6 +84,8 @@ export function useChannelSections(
     ): ((prev: ChannelSectionStore) => ChannelSectionStore) => {
       return (prev) => {
         if (!pubkey) return prev;
+        if (managerRef.current?.shouldApplyRemote(remote) === false)
+          return prev;
         if (remote.createdAt < lastAppliedRemoteTs.current) return prev;
         if (
           remote.createdAt === lastAppliedRemoteTs.current &&
