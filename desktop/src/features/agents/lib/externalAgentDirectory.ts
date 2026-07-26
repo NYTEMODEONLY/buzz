@@ -43,6 +43,18 @@ export function ownerManagedRelayAgents(
   );
 }
 
+export function ownerManagedPersonaIds(
+  relayAgents: readonly RelayAgent[],
+): Set<string> {
+  return new Set(
+    relayAgents
+      .filter((agent) => agent.isOwnerManaged)
+      .flatMap((agent) =>
+        agent.ownerManagedPersonaId ? [agent.ownerManagedPersonaId] : [],
+      ),
+  );
+}
+
 export function formatExternalAgentType(agentType: string): string {
   const normalized = agentType.trim().toLowerCase();
   if (!normalized || normalized === "agent") {

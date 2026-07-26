@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 
 use buzz_core_pkg::kind::KIND_MANAGED_AGENT;
 use tauri::State;
@@ -40,6 +40,29 @@ pub async fn list_relay_agents(state: State<'_, AppState>) -> Result<Vec<RelayAg
         query_relay(&state, &owner_managed_filter),
     )?;
     let owner_managed_agents = owner_managed_agents(&owner_managed_events, &owner_pubkey);
+    let owner_managed_pubkeys = owner_managed_agents.keys().cloned().collect::<Vec<_>>();
+
+    // The broad directory can hit its result cap before an older canonical
+    // managed profile appears. Always fetch the owner's declared agents by
+    // author as a second lane, then merge by the newest profile event.
+    let owner_managed_directory_events = if owner_managed_pubkeys.is_empty() {
+        vec![]
+    } else {
+        query_relay(
+            &state,
+            &[serde_json::json!({
+                "authors": owner_managed_pubkeys,
+                "kinds": [10100],
+                "limit": RELAY_AGENT_FETCH_LIMIT,
+            })],
+        )
+        .await?
+    };
+    let directory_events = latest_directory_events(
+        directory_events
+            .into_iter()
+            .chain(owner_managed_directory_events),
+    );
 
     let value = nostr_convert::agents_from_events(&directory_events);
     let agents = value
@@ -55,6 +78,23 @@ pub async fn list_relay_agents(state: State<'_, AppState>) -> Result<Vec<RelayAg
         }
     }
     Ok(agents)
+}
+
+fn latest_directory_events(events: impl IntoIterator<Item = nostr::Event>) -> Vec<nostr::Event> {
+    let mut latest_by_author = HashMap::<String, nostr::Event>::new();
+    for event in events {
+        let author = event.pubkey.to_hex();
+        match latest_by_author.entry(author) {
+            Entry::Vacant(entry) => {
+                entry.insert(event);
+            }
+            Entry::Occupied(mut entry) if event.created_at > entry.get().created_at => {
+                entry.insert(event);
+            }
+            Entry::Occupied(_) => {}
+        }
+    }
+    latest_by_author.into_values().collect()
 }
 
 fn owner_managed_agents(
@@ -81,7 +121,7 @@ fn owner_managed_agents(
             let persona_id =
                 crate::managed_agents::agent_events::managed_agent_content_from_event(event)
                     .ok()
-                .and_then(|content| content.persona_id);
+                    .and_then(|content| content.persona_id);
             Some((pubkey, persona_id))
         })
         .collect()
@@ -127,5 +167,28 @@ mod tests {
             agents,
             HashMap::from([(managed_agent, Some("builtin:fizz".to_string()))])
         );
+    }
+
+    #[test]
+    fn targeted_directory_profiles_fill_and_refresh_a_capped_broad_result() {
+        let canonical = nostr::Keys::generate();
+        let other = nostr::Keys::generate();
+        let old = nostr::EventBuilder::new(nostr::Kind::Custom(10100), r#"{"name":"Old MUSE"}"#)
+            .custom_created_at(nostr::Timestamp::from(100))
+            .sign_with_keys(&canonical)
+            .unwrap();
+        let latest = nostr::EventBuilder::new(nostr::Kind::Custom(10100), r#"{"name":"MUSE"}"#)
+            .custom_created_at(nostr::Timestamp::from(200))
+            .sign_with_keys(&canonical)
+            .unwrap();
+        let unrelated = nostr::EventBuilder::new(nostr::Kind::Custom(10100), r#"{"name":"ALICE"}"#)
+            .sign_with_keys(&other)
+            .unwrap();
+
+        let merged = latest_directory_events([old, unrelated.clone(), latest.clone()]);
+
+        assert_eq!(merged.len(), 2);
+        assert!(merged.iter().any(|event| event.id == latest.id));
+        assert!(merged.iter().any(|event| event.id == unrelated.id));
     }
 }

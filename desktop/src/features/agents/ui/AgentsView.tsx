@@ -28,6 +28,7 @@ import { useTeamActions } from "./useTeamActions";
 import { useProfilePanel } from "@/shared/context/ProfilePanelContext";
 import { useBakedBuildEnvQuery } from "@/features/agents/hooks";
 import { isManagedAgentActive } from "@/features/agents/lib/managedAgentControlActions";
+import { ownerManagedPersonaIds } from "@/features/agents/lib/externalAgentDirectory";
 import { useGlobalAgentConfig } from "@/features/agents/useGlobalAgentConfig";
 import { Button } from "@/shared/ui/button";
 import { PageHeader } from "@/shared/ui/PageHeader";
@@ -40,6 +41,17 @@ export function AgentsView() {
   const inheritedDefaults = getInheritedAgentDefaults(globalConfig, bakedEnv);
   const agents = useManagedAgentActions();
   const personas = usePersonaActions();
+  const remoteManagedPersonaIds = React.useMemo(
+    () => ownerManagedPersonaIds(agents.relayAgentsQuery.data ?? []),
+    [agents.relayAgentsQuery.data],
+  );
+  const launchableLibraryPersonas = React.useMemo(
+    () =>
+      personas.libraryPersonas.filter(
+        (persona) => !remoteManagedPersonaIds.has(persona.id),
+      ),
+    [personas.libraryPersonas, remoteManagedPersonaIds],
+  );
   const teamImportInputRef = React.useRef<HTMLInputElement | null>(null);
   const aiDefaultsTriggerRef = React.useRef<HTMLButtonElement>(null);
   const [isAiDefaultsOpen, setIsAiDefaultsOpen] = React.useState(false);
@@ -169,7 +181,7 @@ export function AgentsView() {
               }}
               // Persona props
               canChooseCatalog={personas.catalogPersonas.length > 0}
-              personas={personas.libraryPersonas}
+              personas={launchableLibraryPersonas}
               personasError={
                 personas.personasQuery.error instanceof Error
                   ? personas.personasQuery.error

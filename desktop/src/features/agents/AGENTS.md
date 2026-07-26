@@ -121,8 +121,13 @@ without a parallel TypeScript runtime list.
    runtime/edit controls disabled, and continues using the same pubkey for
    profiles, mentions, messages, DMs, activity, and memory. A complete remote
    built-in Welcome Team suppresses local Welcome-team provisioning; never mint
-   same-persona replacements just because the local keyring is isolated. The
-   directory card's runtime label comes from kind `10100` `agent_type`.
+   same-persona replacements just because the local keyring is isolated. Hide
+   local launch controls for a persona already declared by an owner-managed
+   remote agent. Broad directory queries may hit relay result caps, so fetch
+   owner-managed kind `10100` profiles by their exact authors as a second lane.
+   Relay-authoritative archived identities stay out of forward-looking agent
+   discovery even while their durable directory profiles remain. The directory
+   card's runtime label comes from kind `10100` `agent_type`.
 11. **Owner-declared relay agents participate in observer ingestion.** An
    external agent with a verified NIP-OA owner belongs in the app-global
    kind-`24200` ingestion list as `deployed`; non-owned and owner-unknown relay

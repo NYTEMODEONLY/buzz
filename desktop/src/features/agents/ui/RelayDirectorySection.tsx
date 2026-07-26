@@ -2,6 +2,7 @@ import * as React from "react";
 import { ChevronDown, ChevronRight, Pencil, Search } from "lucide-react";
 
 import { externalAgentPresentationScope } from "@/features/agents/externalAgentPresentation";
+import { useIsArchivedPredicate } from "@/features/identity-archive/hooks";
 import {
   externalRelayAgents,
   formatExternalAgentType,
@@ -35,6 +36,7 @@ export function RelayDirectorySection({
   relayAgents: RelayAgent[];
 }) {
   const identityQuery = useIdentityQuery();
+  const isIdentityArchived = useIsArchivedPredicate();
   const { activeCommunity } = useCommunities();
   const [isExpanded, setIsExpanded] = React.useState(true);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -50,11 +52,12 @@ export function RelayDirectorySection({
   // the owner's relay-declared agents must still be visible and mentionable.
   // Runtime controls remain exclusively on the installation holding the key.
   const communityAgents = React.useMemo(
-    () => [
-      ...ownerManagedRelayAgents(relayAgents, managedPubkeys, managedNames),
-      ...externalRelayAgents(relayAgents, managedPubkeys, managedNames),
-    ],
-    [relayAgents, managedPubkeys, managedNames],
+    () =>
+      [
+        ...ownerManagedRelayAgents(relayAgents, managedPubkeys, managedNames),
+        ...externalRelayAgents(relayAgents, managedPubkeys, managedNames),
+      ].filter((agent) => !isIdentityArchived(agent.pubkey)),
+    [relayAgents, managedPubkeys, managedNames, isIdentityArchived],
   );
   const otherAgentPubkeys = React.useMemo(
     () => communityAgents.map((agent) => normalizePubkey(agent.pubkey)),

@@ -65,6 +65,12 @@ relay, Canary:
 
 - does not mint replacement Fizz/Honey/Bumble identities;
 - shows the existing identities as `Managed elsewhere`;
+- fetches each owner-declared agent profile by its exact pubkey so an older
+  canonical profile cannot be lost behind a broad relay-directory result cap;
+- hides relay-archived identities even when their durable directory profiles
+  remain available for history;
+- hides local launch controls for personas already represented by those remote
+  owner-managed identities;
 - uses those same pubkeys for mentions, messages, DMs, profiles, activity, and
   owner-visible memory; and
 - leaves start, stop, edit, and secret-bearing runtime controls on the client

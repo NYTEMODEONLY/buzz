@@ -263,8 +263,26 @@ test("agents managed by another Buzz installation keep their canonical identity"
       personaId: "builtin:bumble",
     },
   ];
+  const archivedDuplicates = [
+    {
+      pubkey: "4".repeat(64),
+      name: "Fizz",
+      personaId: "builtin:fizz",
+    },
+    {
+      pubkey: "5".repeat(64),
+      name: "Honey",
+      personaId: "builtin:honey",
+    },
+    {
+      pubkey: "6".repeat(64),
+      name: "Bumble",
+      personaId: "builtin:bumble",
+    },
+  ];
   await installMockBridge(page, {
-    relayAgents: canonicalAgents.map((agent) => ({
+    archivedIdentities: archivedDuplicates.map((agent) => agent.pubkey),
+    relayAgents: [...canonicalAgents, ...archivedDuplicates].map((agent) => ({
       pubkey: agent.pubkey,
       name: agent.name,
       ownerPubkey: TEST_IDENTITIES.tyler.pubkey,
@@ -285,6 +303,15 @@ test("agents managed by another Buzz installation keep their canonical identity"
     await expect(card).toContainText("Managed elsewhere");
     await expect(
       card.getByTestId(`agent-runtime-start-${agent.pubkey}`),
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId(`persona-runtime-start-${agent.personaId}`),
+    ).toHaveCount(0);
+  }
+
+  for (const duplicate of archivedDuplicates) {
+    await expect(
+      page.getByTestId(`external-agent-card-${duplicate.pubkey}`),
     ).toHaveCount(0);
   }
 });

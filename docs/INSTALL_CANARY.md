@@ -39,6 +39,10 @@ Expected side-by-side result:
 3. Mentions and messages from either client target the same agent identities.
 4. If the complete built-in Welcome Team already exists remotely, Canary skips
    local Welcome-team provisioning.
+5. Archived replacement identities do not appear in the forward-looking agent
+   directory, even if their durable Nostr profiles remain on the relay.
+6. Local persona launch controls are absent for every owner-managed agent
+   already hosted by the other installation.
 
 If an older Canary already minted duplicates, compare all local and canonical
 pubkeys first. Delete/archive only the Canary-owned replacements, verify the

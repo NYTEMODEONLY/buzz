@@ -5,6 +5,7 @@ import {
   externalRelayAgents,
   formatExternalAgentType,
   ownerManagedRelayAgents,
+  ownerManagedPersonaIds,
 } from "./externalAgentDirectory.ts";
 
 const relayAgent = (overrides) => ({
@@ -106,6 +107,23 @@ test("deduplicates an archived managed coordinate by its local card name", () =>
       new Set([" muse "]),
     ),
     [alice],
+  );
+});
+
+test("owner-managed persona ids suppress replacement launch controls", () => {
+  const muse = relayAgent({
+    pubkey: "1".repeat(64),
+    isOwnerManaged: true,
+    ownerManagedPersonaId: "builtin:fizz",
+  });
+  const alice = relayAgent({
+    pubkey: "2".repeat(64),
+    ownerManagedPersonaId: "builtin:honey",
+  });
+
+  assert.deepEqual(
+    ownerManagedPersonaIds([muse, alice]),
+    new Set(["builtin:fizz"]),
   );
 });
 
