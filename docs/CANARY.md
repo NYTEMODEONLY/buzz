@@ -36,3 +36,13 @@ when both apps are installed.
 The build fails closed unless its updater public key and exact fork-owned
 manifest endpoint are supplied. A missing signing setup is a release blocker,
 not a reason to reuse Block's trust root.
+
+## Sidebar organization data
+
+Sidebar categories reuse Buzz's encrypted `channel-sections` NIP-78 document.
+Exact channel order is stored separately in the encrypted
+`channel-manual-order` document, while group sort choices remain in
+`channel-sort`. All three are scoped to the signed-in identity and normalized
+community relay. Keeping order separate preserves compatibility with older
+clients and prevents a malformed order payload from changing channel
+membership.

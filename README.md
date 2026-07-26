@@ -31,11 +31,14 @@
 | Hermes ACP runtime and first-class external agents | Integrated |
 | Detached external-agent activity visibility | Integrated |
 | Local provider allowance indicator | Codex supported; Claude and Grok shown honestly as unsupported |
+| Sidebar categories and manual channel order | Integrated; pointer and keyboard reordering with encrypted per-community sync |
 | Canary footer attribution | `canary by nytemode` links to [nytemode.com](https://nytemode.com) |
 | Official-Buzz isolation | Separate bundle data, keyring, deep links, release links, and updater trust |
 
 See the evidence-bound [feature inventory](docs/CANARY_FEATURES.md) for source
 commits, upstream PRs, limitations, and release proof status.
+See [Sidebar categories and manual order](docs/SIDEBAR_CATEGORIES.md) for the
+user workflow and persistence contract.
 
 <p align="center">
   <img src="docs/assets/screenshots/channel-thread.png" alt="A Buzz project channel where people and an agent coordinate on a release plan" width="100%">

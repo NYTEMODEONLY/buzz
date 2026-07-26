@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added first-class sidebar categories and exact manual channel ordering,
+  including pointer and keyboard movement, empty-category targets, safe
+  rename/delete behavior, and encrypted relay-scoped synchronization.
 - Integrated the Hermes ACP and external-agent feature stack.
 - Added detached external-agent activity transport.
 - Added local provider allowance visibility for Codex with honest unsupported

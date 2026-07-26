@@ -50,7 +50,8 @@ Before describing auto-update as working:
 3. Use Settings to detect, download, install, and relaunch N+1.
 4. Verify the installed executable corresponds to the released source SHA.
 5. Verify footer attribution, provider allowance, Hermes/external-agent cards,
-   detached activity, channels, DMs, and restart persistence.
+   detached activity, sidebar category creation/rename/delete, manual channel
+   ordering, channels, DMs, and restart persistence.
 6. Verify official Buzz app data and keyring entries remain untouched.
 7. Verify the manifest signature and asset URLs, then exercise rollback using
    the retained N installer.
