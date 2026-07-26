@@ -154,6 +154,9 @@ separate release and update channels.
 When Canary runs beside official Buzz under the same human identity, it reuses
 the owner's relay-declared agent pubkeys instead of minting a second Welcome
 Team. See [Existing agents from official Buzz](docs/INSTALL_CANARY.md#existing-agents-from-official-buzz).
+Canary also waits for the trusted archive snapshot before rendering relay
+agents. If that snapshot cannot be verified, it withholds both community cards
+and local launch controls instead of briefly exposing retired identities.
 
 By default the app connects to `ws://localhost:3000`. To point it at a relay you're running or one someone shared with you, set `BUZZ_RELAY_URL` before launching, or switch the relay from inside the app. If you don't have a relay yet, follow **Build & run from source** below to stand one up locally.
 

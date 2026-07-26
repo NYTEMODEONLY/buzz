@@ -281,6 +281,8 @@ type E2eConfig = {
     // - `resolve_oa_owner` (oaOwnerIsMe)
     // - `resetMockRelayMembers` (relayRole)
     archivedIdentities?: string[];
+    archivedIdentitiesDelayMs?: number;
+    archivedIdentitiesError?: string;
     // Relay's NIP-11 `self` pubkey (hex) for `get_relay_self`. A DM whose peer
     // equals this is treated as a moderation DM (composer disabled). Absent →
     // fail open (no mod-DM detection), matching the Rust command's contract.
@@ -10977,6 +10979,17 @@ export function maybeInstallE2eTauriMocks() {
         return { owner, is_me: isMe };
       }
       case "list_archived_identities": {
+        const archivedError = activeConfig?.mock?.archivedIdentitiesError;
+        if (archivedError) {
+          throw new Error(archivedError);
+        }
+        const archivedDelay =
+          activeConfig?.mock?.archivedIdentitiesDelayMs ?? 0;
+        if (archivedDelay > 0) {
+          await new Promise((resolve) =>
+            window.setTimeout(resolve, archivedDelay),
+          );
+        }
         const archived = activeConfig?.mock?.archivedIdentities ?? [];
         return { archived };
       }

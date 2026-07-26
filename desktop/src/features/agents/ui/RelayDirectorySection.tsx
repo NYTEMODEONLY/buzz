@@ -2,7 +2,10 @@ import * as React from "react";
 import { ChevronDown, ChevronRight, Pencil, Search } from "lucide-react";
 
 import { externalAgentPresentationScope } from "@/features/agents/externalAgentPresentation";
-import { useIsArchivedPredicate } from "@/features/identity-archive/hooks";
+import {
+  useArchivedIdentitiesQuery,
+  useIsArchivedPredicate,
+} from "@/features/identity-archive/hooks";
 import {
   externalRelayAgents,
   formatExternalAgentType,
@@ -36,6 +39,7 @@ export function RelayDirectorySection({
   relayAgents: RelayAgent[];
 }) {
   const identityQuery = useIdentityQuery();
+  const archivedIdentitiesQuery = useArchivedIdentitiesQuery();
   const isIdentityArchived = useIsArchivedPredicate();
   const { activeCommunity } = useCommunities();
   const [isExpanded, setIsExpanded] = React.useState(true);
@@ -86,7 +90,26 @@ export function RelayDirectorySection({
     [filteredAgents],
   );
 
-  if (isLoading || communityAgents.length === 0) return null;
+  // Archive state is part of relay-agent discovery, not optional decoration.
+  // Rendering before it resolves flashes retired identities on cold launch;
+  // failing open after an archive read error leaves those identities visible
+  // indefinitely. Keep the directory withheld until the trusted snapshot is
+  // available. AgentsView still derives persona suppression from the owner
+  // declarations, so this gate cannot expose a local Start control.
+  if (isLoading || archivedIdentitiesQuery.isPending) return null;
+
+  if (archivedIdentitiesQuery.isError) {
+    return (
+      <p
+        className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        data-testid="relay-directory-archive-error"
+      >
+        Community agents are hidden until archived identities can be verified.
+      </p>
+    );
+  }
+
+  if (communityAgents.length === 0) return null;
 
   return (
     <section className="space-y-3">

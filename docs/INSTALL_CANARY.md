@@ -46,8 +46,13 @@ Expected side-by-side result:
 7. An owner-managed agent with a kind `30177` declaration but no usable kind
    `10100` directory profile still appears under its canonical pubkey as
    `Managed elsewhere`.
+8. Relay-directory cards remain withheld until the trusted archive snapshot
+   resolves. If it fails, Canary exposes neither stale cards nor local launch
+   controls.
 
 If an older Canary already minted duplicates, compare all local and canonical
-pubkeys first. Delete/archive only the Canary-owned replacements, verify the
-canonical identities remain unarchived, then relaunch Canary and confirm the
-canonical cards read `Managed elsewhere`.
+pubkeys and their owner-authored lifecycle records first. A shared name,
+built-in persona, newer timestamp, or offline status is not sufficient proof.
+Delete/archive only the exact stale replacements, verify the canonical
+identities remain unarchived, then relaunch Canary and confirm the canonical
+cards read `Managed elsewhere`.

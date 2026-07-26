@@ -70,6 +70,8 @@ relay, Canary:
 - treats the owner's kind `30177` managed-agent declaration as sufficient to
   preserve the canonical card when that agent has no usable kind `10100`
   directory profile;
+- waits for the trusted archive snapshot before rendering relay-directory
+  cards and fails closed if that snapshot cannot be verified;
 - hides relay-archived identities even when their durable directory profiles
   remain available for history;
 - hides local launch controls for personas already represented by those remote
@@ -81,6 +83,11 @@ relay, Canary:
 
 This provides one agent identity/runtime across official Buzz and Canary while
 preserving the side-by-side security boundary.
+
+Names, built-in persona IDs, timestamps, and online status are not identity
+proof. If stale owner declarations survive an older install, resolve the exact
+pubkeys and lifecycle records before cleanup; never select a deletion target
+from the visible card label alone.
 
 ## Sidebar organization data
 

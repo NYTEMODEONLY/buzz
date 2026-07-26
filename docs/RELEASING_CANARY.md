@@ -59,9 +59,12 @@ Before describing auto-update as working:
    Canary shows the official client's agents with the exact same pubkeys as
    `Managed elsewhere`, does not mint a replacement Welcome Team, and cannot
    start, stop, or edit those remote-owned runtimes.
-8. Send a mention from each client and verify both messages target the same
+8. Delay the trusted archive lookup and verify retired cards never flash and
+   local launch controls never appear. Force the lookup to fail and verify the
+   relay directory remains withheld with a visible safe error.
+9. Send a mention from each client and verify both messages target the same
    agent pubkey and receive replies from that pubkey.
-9. Verify the manifest signature and asset URLs, then exercise rollback using
+10. Verify the manifest signature and asset URLs, then exercise rollback using
    the retained N installer.
 
 Until that gate is complete, documentation must say source-only or unsigned

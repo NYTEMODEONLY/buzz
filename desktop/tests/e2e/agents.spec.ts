@@ -316,6 +316,85 @@ test("agents managed by another Buzz installation keep their canonical identity"
   }
 });
 
+test("relay agents never flash while archived identities are still loading", async ({
+  page,
+}) => {
+  const canonicalPubkey = "1".repeat(64);
+  const archivedPubkey = "4".repeat(64);
+  await installMockBridge(page, {
+    archivedIdentities: [archivedPubkey],
+    archivedIdentitiesDelayMs: 3_000,
+    relayAgents: [
+      {
+        pubkey: canonicalPubkey,
+        name: "MUSE",
+        ownerPubkey: TEST_IDENTITIES.tyler.pubkey,
+        isOwnerManaged: true,
+        ownerManagedPersonaId: "builtin:fizz",
+        agentType: "codex",
+        channelNames: ["general"],
+        status: "online",
+      },
+      {
+        pubkey: archivedPubkey,
+        name: "Fizz",
+        ownerPubkey: TEST_IDENTITIES.tyler.pubkey,
+        isOwnerManaged: true,
+        ownerManagedPersonaId: "builtin:fizz",
+        agentType: "codex",
+        channelNames: ["general"],
+        status: "offline",
+      },
+    ],
+  });
+  await gotoApp(page);
+  await page.getByTestId("open-agents-view").click();
+
+  await expect(page.getByTestId("relay-directory-cards")).toHaveCount(0);
+  await expect(
+    page.getByTestId("persona-runtime-start-builtin:fizz"),
+  ).toHaveCount(0);
+
+  await expect(
+    page.getByTestId(`external-agent-card-${canonicalPubkey}`),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(`external-agent-card-${archivedPubkey}`),
+  ).toHaveCount(0);
+});
+
+test("archive lookup failure withholds relay cards and launch controls", async ({
+  page,
+}) => {
+  const canonicalPubkey = "1".repeat(64);
+  await installMockBridge(page, {
+    archivedIdentitiesError: "archive snapshot unavailable",
+    relayAgents: [
+      {
+        pubkey: canonicalPubkey,
+        name: "MUSE",
+        ownerPubkey: TEST_IDENTITIES.tyler.pubkey,
+        isOwnerManaged: true,
+        ownerManagedPersonaId: "builtin:fizz",
+        agentType: "codex",
+        channelNames: ["general"],
+        status: "online",
+      },
+    ],
+  });
+  await gotoApp(page);
+  await page.getByTestId("open-agents-view").click();
+
+  await expect(page.getByTestId("relay-directory-archive-error")).toBeVisible();
+  await expect(page.getByTestId("relay-directory-cards")).toHaveCount(0);
+  await expect(
+    page.getByTestId(`external-agent-card-${canonicalPubkey}`),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId("persona-runtime-start-builtin:fizz"),
+  ).toHaveCount(0);
+});
+
 test("built-in personas are used from the catalog dialog", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 420 });
   await gotoApp(page);
