@@ -69,7 +69,7 @@ export function DraggableChannelRow({
     <div
       ref={setNodeRef}
       className={cn(
-        "relative [&_[data-sidebar=menu-button]]:pr-8",
+        "group/channel-drag-row relative [&_[data-sidebar=menu-button]]:pr-8",
         isDragging && "opacity-30",
       )}
       data-dnd-channel={channelId}
@@ -84,7 +84,10 @@ export function DraggableChannelRow({
         {...listeners}
         aria-label={`Move ${channelName}`}
         aria-roledescription="sortable channel"
-        className="absolute right-1 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 touch-none cursor-grab items-center justify-center rounded-md text-sidebar-foreground/40 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring active:cursor-grabbing"
+        className={cn(
+          "absolute right-1 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 touch-none cursor-grab items-center justify-center rounded-md text-sidebar-foreground/40 opacity-0 transition-opacity hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring group-focus-within/channel-drag-row:opacity-100 group-hover/channel-drag-row:opacity-100 active:cursor-grabbing [@media(hover:none)]:opacity-100",
+          isDragging && "opacity-100",
+        )}
         data-dnd-handle={channelId}
         type="button"
       >

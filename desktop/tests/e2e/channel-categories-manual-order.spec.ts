@@ -194,6 +194,14 @@ test.describe("sidebar categories and manual channel order", () => {
     );
     await expect(firstRow).not.toHaveClass(/touch-none/);
     await expect(firstHandle).toHaveClass(/touch-none/);
+    await page.mouse.move(0, 0);
+    await expect(firstHandle).toHaveCSS("opacity", "0");
+    await firstRow.hover();
+    await expect(firstHandle).toHaveCSS("opacity", "1");
+    const secondHandle = channelDragHandle(page, secondChannel);
+    await draggableChannel(page, secondChannel).hover();
+    await expect(firstHandle).toHaveCSS("opacity", "0");
+    await expect(secondHandle).toHaveCSS("opacity", "1");
     await dragOver(page, firstHandle, draggableChannel(page, secondChannel));
     await expect
       .poll(async () => (await channelNames(list)).slice(0, 2))
@@ -245,9 +253,13 @@ test.describe("sidebar categories and manual channel order", () => {
     expect(initialOrder).toHaveLength(2);
     const [firstChannel, secondChannel] = initialOrder;
     const secondHandle = channelDragHandle(page, secondChannel);
+    await page.mouse.move(0, 0);
+    await expect(secondHandle).toHaveCSS("opacity", "0");
     await secondHandle.focus();
+    await expect(secondHandle).toHaveCSS("opacity", "1");
     await secondHandle.press("Space");
     await waitForKeyboardSensor(page, draggableChannel(page, secondChannel));
+    await expect(secondHandle).toHaveCSS("opacity", "1");
     // KeyboardSensor attaches its document keydown listener on the next task.
     // The helper yields a macrotask so Escape exercises the active drag instead
     // of racing that listener installation.
