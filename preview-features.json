@@ -34,8 +34,7 @@
     {
       "id": "providerUsage",
       "name": "Provider usage indicator",
-      "description": "Show local Codex subscription usage and reset timing in the sidebar",
-      "defaultEnabled": true,
+      "description": "Opt in to read local Codex subscription allowance and reset timing",
       "platforms": ["desktop"]
     }
   ]
