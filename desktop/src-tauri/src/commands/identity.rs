@@ -134,6 +134,109 @@ pub async fn sign_event(
     .map_err(|e| format!("spawn_blocking failed: {e}"))?
 }
 
+fn has_live_owner_managed_declaration(
+    events: &[Event],
+    owner_pubkey: &str,
+    agent_pubkey: &str,
+) -> bool {
+    events.iter().any(|event| {
+        event.kind == Kind::Custom(buzz_core_pkg::kind::KIND_MANAGED_AGENT as u16)
+            && event.pubkey.to_hex().eq_ignore_ascii_case(owner_pubkey)
+            && event.tags.iter().any(|tag| {
+                let values = tag.as_slice();
+                values.first().map(String::as_str) == Some("d")
+                    && values
+                        .get(1)
+                        .is_some_and(|value| value.eq_ignore_ascii_case(agent_pubkey))
+            })
+    })
+}
+
+/// Remove an owner-authored managed-agent declaration that no longer has a
+/// local management record on this installation.
+///
+/// This publishes only a NIP-09 coordinate deletion for
+/// `30177:<owner>:<agent_pubkey>`. It deliberately does not archive the agent
+/// identity, remove channel membership, stop a runtime, or delete an agent key.
+/// Locally managed agents must use the normal delete flow so those coupled
+/// resources cannot be orphaned.
+#[tauri::command]
+pub async fn remove_stale_managed_agent_declaration(
+    agent_pubkey: String,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<crate::relay::SubmitEventResponse, String> {
+    let target_pubkey = PublicKey::from_hex(agent_pubkey.trim())
+        .map_err(|error| format!("invalid agent pubkey: {error}"))?
+        .to_hex();
+
+    let locally_managed = crate::managed_agents::load_managed_agents(&app)?
+        .iter()
+        .any(|agent| agent.pubkey.eq_ignore_ascii_case(&target_pubkey));
+    if locally_managed {
+        return Err(
+            "agent is managed by this installation; use Delete agent so its runtime and key are handled safely"
+                .to_string(),
+        );
+    }
+
+    let owner_pubkey = state.signing_keys()?.public_key().to_hex();
+    let declarations = relay::query_relay(
+        &state,
+        &[serde_json::json!({
+            "kinds": [buzz_core_pkg::kind::KIND_MANAGED_AGENT],
+            "authors": [owner_pubkey],
+            "#d": [target_pubkey],
+            "limit": 1,
+        })],
+    )
+    .await?;
+    if !has_live_owner_managed_declaration(&declarations, &owner_pubkey, &target_pubkey) {
+        return Err("no live owner-authored managed-agent declaration exists".to_string());
+    }
+
+    let builder =
+        crate::managed_agents::agent_events::build_agent_delete(&target_pubkey, &owner_pubkey)?;
+    relay::submit_event(builder, &state).await
+}
+
+#[cfg(test)]
+mod stale_declaration_tests {
+    use super::has_live_owner_managed_declaration;
+    use nostr::{EventBuilder, Keys, Kind, Tag};
+
+    fn declaration(keys: &Keys, agent_pubkey: &str) -> nostr::Event {
+        EventBuilder::new(Kind::Custom(30177), "{}")
+            .tags(vec![Tag::parse(["d", agent_pubkey]).expect("valid d tag")])
+            .sign_with_keys(keys)
+            .expect("declaration signs")
+    }
+
+    #[test]
+    fn live_declaration_requires_exact_owner_and_agent_coordinate() {
+        let owner = Keys::generate();
+        let other_owner = Keys::generate();
+        let target = "11".repeat(32);
+        let other_target = "22".repeat(32);
+        let events = vec![
+            declaration(&other_owner, &target),
+            declaration(&owner, &other_target),
+            declaration(&owner, &target),
+        ];
+
+        assert!(has_live_owner_managed_declaration(
+            &events,
+            &owner.public_key().to_hex(),
+            &target,
+        ));
+        assert!(!has_live_owner_managed_declaration(
+            &events[..2],
+            &owner.public_key().to_hex(),
+            &target,
+        ));
+    }
+}
+
 #[tauri::command]
 pub fn decrypt_observer_event(
     event_json: String,

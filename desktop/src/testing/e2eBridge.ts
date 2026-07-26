@@ -10102,6 +10102,23 @@ export function maybeInstallE2eTauriMocks() {
         );
       case "list_relay_agents":
         return handleListRelayAgents(activeConfig);
+      case "remove_stale_managed_agent_declaration": {
+        const agentPubkey = (payload as { agentPubkey: string }).agentPubkey;
+        const initialLength = mockRelayAgents.length;
+        mockRelayAgents = mockRelayAgents.filter(
+          (agent) => agent.pubkey.toLowerCase() !== agentPubkey.toLowerCase(),
+        );
+        if (mockRelayAgents.length === initialLength) {
+          throw new Error(
+            "no live owner-authored managed-agent declaration exists",
+          );
+        }
+        return {
+          event_id: "5".repeat(64),
+          accepted: true,
+          message: "",
+        };
+      }
       case "list_personas":
         return handleListPersonas();
       case "create_persona":

@@ -316,6 +316,50 @@ test("agents managed by another Buzz installation keep their canonical identity"
   }
 });
 
+test("owner can remove a relay-only stale managed-agent declaration without archiving it", async ({
+  page,
+}) => {
+  const stalePubkey = "7".repeat(64);
+  const mockOwnerPubkey = "deadbeef".repeat(8);
+  await installMockBridge(page, {
+    relayAgents: [
+      {
+        pubkey: stalePubkey,
+        name: "Legacy XENA",
+        ownerPubkey: mockOwnerPubkey,
+        isOwnerManaged: true,
+        ownerManagedPersonaId: null,
+        agentType: "codex",
+        channelNames: ["general"],
+        status: "offline",
+      },
+    ],
+  });
+  await gotoApp(page);
+  await page.getByTestId("open-agents-view").click();
+
+  const card = page.getByTestId(`external-agent-card-${stalePubkey}`);
+  await card
+    .getByRole("button", { name: "Legacy XENA external agent profile" })
+    .click();
+  await page.getByTestId("user-profile-settings-menu-trigger").click();
+  await page.getByTestId("user-profile-remove-stale-declaration").click();
+
+  const dialog = page.getByTestId("stale-declaration-delete-confirm-dialog");
+  await expect(dialog).toContainText(
+    "Does not stop or delete the external runtime",
+  );
+  await expect(dialog).toContainText(
+    "Does not delete an agent key or archive the identity",
+  );
+  await dialog.getByTestId("stale-declaration-delete-confirm-action").click();
+
+  await expect(card).toHaveCount(0);
+  await expect(
+    page.getByText("Removed stale managed-agent declaration."),
+  ).toBeVisible();
+});
+
 test("relay agents never flash while archived identities are still loading", async ({
   page,
 }) => {

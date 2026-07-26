@@ -709,6 +709,7 @@ pub fn run() {
             connect_acp_runtime,
             discover_managed_agent_prereqs,
             sign_event,
+            remove_stale_managed_agent_declaration,
             sign_nostr_identity_binding,
             sign_out,
             decrypt_observer_event,

@@ -40,6 +40,7 @@ export function UserProfileAgentSettingsMenu({
   onDelete,
   onDuplicatePersona,
   onExportPersona,
+  onRemoveStaleDeclaration,
   onToggleAutoStart,
   personaActionKey,
 }: {
@@ -50,11 +51,14 @@ export function UserProfileAgentSettingsMenu({
   onDelete?: () => void;
   onDuplicatePersona?: () => void;
   onExportPersona?: () => void;
+  onRemoveStaleDeclaration?: () => void;
   onToggleAutoStart?: () => void;
   personaActionKey?: string;
 }) {
   const [archiveConfirmOpen, setArchiveConfirmOpen] = React.useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
+  const [staleDeclarationConfirmOpen, setStaleDeclarationConfirmOpen] =
+    React.useState(false);
   const actionKey = managedAgent?.pubkey ?? "persona-draft";
   const personaKey = personaActionKey ?? actionKey;
   const canToggleAutoStart =
@@ -68,7 +72,8 @@ export function UserProfileAgentSettingsMenu({
     archiveActions.isArchived !== undefined;
   const shouldConfirmAgentDelete =
     managedAgent !== undefined && onDelete !== undefined;
-  const hasManageActions = hasArchiveAction || Boolean(onDelete);
+  const hasManageActions =
+    hasArchiveAction || Boolean(onDelete || onRemoveStaleDeclaration);
   const hasActions =
     canToggleAutoStart || hasPrimaryActions || hasManageActions;
 
@@ -167,6 +172,20 @@ export function UserProfileAgentSettingsMenu({
             )
           ) : null}
           {onDelete && hasArchiveAction ? <DropdownMenuSeparator /> : null}
+          {onRemoveStaleDeclaration ? (
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              data-testid="user-profile-remove-stale-declaration"
+              disabled={isPending}
+              onSelect={() => setStaleDeclarationConfirmOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Remove stale declaration
+            </DropdownMenuItem>
+          ) : null}
+          {onDelete && onRemoveStaleDeclaration ? (
+            <DropdownMenuSeparator />
+          ) : null}
           {onDelete ? (
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
@@ -210,6 +229,17 @@ export function UserProfileAgentSettingsMenu({
           open={deleteConfirmOpen}
         />
       ) : null}
+      {onRemoveStaleDeclaration ? (
+        <StaleDeclarationDeleteConfirmDialog
+          isPending={isPending}
+          onConfirm={() => {
+            setStaleDeclarationConfirmOpen(false);
+            onRemoveStaleDeclaration();
+          }}
+          onOpenChange={setStaleDeclarationConfirmOpen}
+          open={staleDeclarationConfirmOpen}
+        />
+      ) : null}
     </>
   );
 }
@@ -219,6 +249,7 @@ export function UserProfileAgentSettingsMenuSlot({
   canDeletePersona,
   canInstantiateAgent,
   canManagePersona,
+  canRemoveStaleDeclaration,
   isAgentActionPending,
   isBot,
   managedAgent,
@@ -226,6 +257,7 @@ export function UserProfileAgentSettingsMenuSlot({
   onDeletePersona,
   onDuplicatePersona,
   onExportPersona,
+  onRemoveStaleDeclaration,
   onToggleAutoStart,
   personaActionKey,
   viewerIsOwner,
@@ -234,6 +266,7 @@ export function UserProfileAgentSettingsMenuSlot({
   canDeletePersona: boolean;
   canInstantiateAgent: boolean;
   canManagePersona: boolean;
+  canRemoveStaleDeclaration: boolean;
   isAgentActionPending: boolean;
   isBot: boolean;
   managedAgent?: ManagedAgent;
@@ -241,6 +274,7 @@ export function UserProfileAgentSettingsMenuSlot({
   onDeletePersona: () => void;
   onDuplicatePersona: () => void;
   onExportPersona: () => void;
+  onRemoveStaleDeclaration: () => void;
   onToggleAutoStart: () => void;
   personaActionKey?: string;
   viewerIsOwner: boolean;
@@ -269,6 +303,15 @@ export function UserProfileAgentSettingsMenuSlot({
     );
   }
 
+  if (canRemoveStaleDeclaration) {
+    return (
+      <UserProfileAgentSettingsMenu
+        {...sharedProps}
+        onRemoveStaleDeclaration={onRemoveStaleDeclaration}
+      />
+    );
+  }
+
   if (canInstantiateAgent) {
     return (
       <UserProfileAgentSettingsMenu
@@ -289,6 +332,55 @@ export function UserProfileAgentSettingsMenuSlot({
   }
 
   return null;
+}
+
+function StaleDeclarationDeleteConfirmDialog({
+  isPending,
+  onConfirm,
+  onOpenChange,
+  open,
+}: {
+  isPending: boolean;
+  onConfirm: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}) {
+  return (
+    <AlertDialog onOpenChange={onOpenChange} open={open}>
+      <AlertDialogContent data-testid="stale-declaration-delete-confirm-dialog">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Remove this stale declaration?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This removes only your cross-install managed-agent declaration.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
+          <li>Does not stop or delete the external runtime</li>
+          <li>Does not delete an agent key or archive the identity</li>
+          <li>Does not change channel membership</li>
+        </ul>
+        <p className="text-sm text-muted-foreground">
+          Use this only after confirming the agent is a retired or replaced
+          relay remnant.
+        </p>
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild>
+            <Button type="button" variant="outline">
+              Cancel
+            </Button>
+          </AlertDialogCancel>
+          <AlertDialogAction
+            className={buttonVariants({ variant: "destructive" })}
+            data-testid="stale-declaration-delete-confirm-action"
+            disabled={isPending}
+            onClick={onConfirm}
+          >
+            {isPending ? "Removing..." : "Remove declaration"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 }
 
 function AgentDeleteConfirmDialog({

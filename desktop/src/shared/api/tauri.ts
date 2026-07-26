@@ -901,6 +901,14 @@ export async function deleteManagedAgent(
   });
 }
 
+export async function removeStaleManagedAgentDeclaration(
+  agentPubkey: string,
+): Promise<{ event_id: string; accepted: boolean; message: string }> {
+  return invokeTauri("remove_stale_managed_agent_declaration", {
+    agentPubkey,
+  });
+}
+
 export async function getManagedAgentLog(pubkey: string, lineCount?: number) {
   const response = await invokeTauri<RawManagedAgentLog>(
     "get_managed_agent_log",

@@ -87,6 +87,7 @@ import {
 import { useProfileDmAction } from "@/features/profile/ui/useProfileDmAction";
 import { useUserStatusQuery } from "@/features/user-status/hooks";
 import { useOpenAgentActivity } from "@/features/agents/useOpenAgentActivity";
+import { removeStaleManagedAgentDeclaration } from "@/shared/api/tauri";
 import { useEscapeKey } from "@/shared/hooks/useEscapeKey";
 import { useIsThreadPanelOverlay } from "@/shared/hooks/use-mobile";
 import { AuxiliaryPanelBody } from "@/shared/layout/AuxiliaryPanel";
@@ -181,6 +182,8 @@ export function UserProfilePanel({
     React.useState<AgentPersona | null>(null);
   const [personaToExportSnapshot, setPersonaToExportSnapshot] =
     React.useState<AgentPersona | null>(null);
+  const [isRemovingStaleDeclaration, setIsRemovingStaleDeclaration] =
+    React.useState(false);
 
   const personasQuery = usePersonasQuery();
   const managedAgentsQuery = useManagedAgentsQuery({ enabled: true });
@@ -365,7 +368,8 @@ export function UserProfilePanel({
     createPersonaMutation.isPending ||
     updatePersonaMutation.isPending ||
     deletePersonaMutation.isPending ||
-    setPersonaActiveMutation.isPending;
+    setPersonaActiveMutation.isPending ||
+    isRemovingStaleDeclaration;
   const isFollowing =
     !isSelf &&
     pubkeyLower.length > 0 &&
@@ -524,6 +528,25 @@ export function UserProfilePanel({
       );
     }
   }, [deleteManagedAgentRecord, managedAgent, onClose]);
+
+  const handleRemoveStaleDeclaration = React.useCallback(async () => {
+    if (!effectivePubkey) return;
+    setIsRemovingStaleDeclaration(true);
+    try {
+      await removeStaleManagedAgentDeclaration(effectivePubkey);
+      await relayAgentsQuery.refetch();
+      toast.success("Removed stale managed-agent declaration.");
+      onClose();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to remove stale managed-agent declaration.",
+      );
+    } finally {
+      setIsRemovingStaleDeclaration(false);
+    }
+  }, [effectivePubkey, onClose, relayAgentsQuery.refetch]);
 
   const handleSubmitPersona = React.useCallback(
     async (input: CreatePersonaInput | UpdatePersonaInput) => {
@@ -727,6 +750,11 @@ export function UserProfilePanel({
   const canManagePersona = isOwner === true && resolvedPersona !== undefined;
   const canEditPersona = canManagePersona;
   const canDeletePersona = canManagePersona && !resolvedPersona?.sourceTeam;
+  const canRemoveStaleDeclaration =
+    viewerIsOwner &&
+    relayAgent?.isOwnerManaged === true &&
+    managedAgent === undefined &&
+    effectivePubkey !== null;
   const archiveActions = useIdentityArchive(effectivePubkey);
   const agentSettingsMenu = (
     <UserProfileAgentSettingsMenuSlot
@@ -734,6 +762,7 @@ export function UserProfilePanel({
       canDeletePersona={canDeletePersona}
       canInstantiateAgent={canInstantiateAgent}
       canManagePersona={canManagePersona}
+      canRemoveStaleDeclaration={canRemoveStaleDeclaration}
       isAgentActionPending={isAgentActionPending}
       isBot={isBot}
       managedAgent={managedAgent}
@@ -741,6 +770,7 @@ export function UserProfilePanel({
       onDeletePersona={handleDeletePersona}
       onDuplicatePersona={handleDuplicatePersona}
       onExportPersona={handleExportPersona}
+      onRemoveStaleDeclaration={handleRemoveStaleDeclaration}
       onToggleAutoStart={handleToggleAgentAutoStart}
       personaActionKey={resolvedPersona?.id}
       viewerIsOwner={viewerIsOwner}

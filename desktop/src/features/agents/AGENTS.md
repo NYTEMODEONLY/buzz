@@ -128,6 +128,11 @@ without a parallel TypeScript runtime list.
    Kind `30177` remains identity-authoritative when a usable kind `10100`
    profile is missing: synthesize the minimal managed card from the declaration
    and preserve its canonical pubkey instead of exposing a local launch path.
+   An owner may explicitly remove a relay-only stale kind `30177` declaration,
+   but that action must publish only the owner-authored NIP-09 coordinate
+   deletion and must not archive the identity, alter channel membership, or
+   touch a runtime/key. Locally managed agents stay on the full Delete agent
+   flow so their coupled resources cannot be orphaned.
    Relay-authoritative archived identities stay out of forward-looking agent
    discovery even while their durable directory profiles remain. The directory
    card's runtime label comes from kind `10100` `agent_type`.
