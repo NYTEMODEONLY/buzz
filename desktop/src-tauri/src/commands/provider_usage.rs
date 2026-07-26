@@ -199,17 +199,13 @@ fn read_codex_provider_usage(
             return Err(code);
         }
     };
-    if let Err(code) = write_message(&mut child, &mut stdin, &account_requests[2]) {
-        join_reader(&mut reader);
-        return Err(code);
-    }
-    let token_usage = match wait_for_response(&receiver, deadline, 3) {
-        Ok(result) => result,
-        Err(code) => {
-            stop_child(&mut child);
-            join_reader(&mut reader);
-            return Err(code);
-        }
+    // Token totals are supplemental. Older app-server versions and some
+    // accounts expose rate limits without account/usage/read; keep the valid
+    // allowance snapshot and leave optional totals empty in that case.
+    let token_usage = if write_message(&mut child, &mut stdin, &account_requests[2]).is_ok() {
+        wait_for_optional_response(&receiver, deadline, 3)
+    } else {
+        json!({})
     };
 
     stop_child(&mut child);
@@ -341,6 +337,14 @@ fn wait_for_response(
     }
 }
 
+fn wait_for_optional_response(
+    receiver: &mpsc::Receiver<Result<String, String>>,
+    deadline: Instant,
+    expected_id: u64,
+) -> Value {
+    wait_for_response(receiver, deadline, expected_id).unwrap_or_else(|_| json!({}))
+}
+
 fn response_error_code(message: &Value) -> Option<String> {
     let error = message.get("error")?;
     let detail = error
@@ -362,9 +366,6 @@ fn normalize_usage(
     token_usage_result: &Value,
     fetched_at: u64,
 ) -> Result<ProviderUsageSnapshot, String> {
-    let legacy_snapshot = rate_limits_result
-        .get("rateLimits")
-        .ok_or_else(|| "codex_usage_invalid_response".to_string())?;
     let bucket_map = rate_limits_result
         .get("rateLimitsByLimitId")
         .and_then(Value::as_object);
@@ -372,7 +373,12 @@ fn normalize_usage(
         Some(map) if !map.is_empty() => {
             map.iter().map(|(id, value)| (id.as_str(), value)).collect()
         }
-        _ => vec![("codex", legacy_snapshot)],
+        _ => vec![(
+            "codex",
+            rate_limits_result
+                .get("rateLimits")
+                .ok_or_else(|| "codex_usage_invalid_response".to_string())?,
+        )],
     };
 
     let mut windows = Vec::new();
@@ -420,8 +426,9 @@ fn normalize_usage(
         vendor: "openai",
         product: "codex",
         source: "personalAllowance",
-        plan_type: legacy_snapshot
-            .get("planType")
+        plan_type: rate_limits_result
+            .get("rateLimits")
+            .and_then(|snapshot| snapshot.get("planType"))
             .and_then(Value::as_str)
             .or_else(|| {
                 first_snapshot
@@ -431,8 +438,9 @@ fn normalize_usage(
             .map(str::to_owned),
         windows,
         totals: ProviderUsageTotals {
-            credit_balance: legacy_snapshot
-                .get("credits")
+            credit_balance: rate_limits_result
+                .get("rateLimits")
+                .and_then(|snapshot| snapshot.get("credits"))
                 .and_then(|credits| credits.get("balance"))
                 .and_then(Value::as_str)
                 .or_else(|| {
@@ -592,6 +600,65 @@ mod tests {
         assert_eq!(usage.totals.lifetime_tokens, Some(13_597_623_776));
         assert_eq!(usage.totals.latest_daily_tokens, Some(61_038_450));
         assert_eq!(usage.fetched_at, 123);
+    }
+
+    #[test]
+    fn keeps_rate_limits_when_optional_token_usage_fails() {
+        let (sender, receiver) = mpsc::channel();
+        sender
+            .send(Ok(json!({
+                "id": 3,
+                "error": {
+                    "code": -32601,
+                    "message": "Method not found"
+                }
+            })
+            .to_string()))
+            .unwrap();
+        let token_usage =
+            wait_for_optional_response(&receiver, Instant::now() + Duration::from_secs(1), 3);
+        let usage = normalize_usage(
+            &json!({
+                "rateLimits": {
+                    "primary": {"usedPercent": 38},
+                    "planType": "pro"
+                }
+            }),
+            &token_usage,
+            123,
+        )
+        .unwrap();
+
+        assert_eq!(usage.windows[0].remaining_percent, 62);
+        assert_eq!(usage.plan_type.as_deref(), Some("pro"));
+        assert_eq!(usage.totals.lifetime_tokens, None);
+        assert_eq!(usage.totals.latest_daily_tokens, None);
+    }
+
+    #[test]
+    fn normalizes_map_only_rate_limits() {
+        let usage = normalize_usage(
+            &json!({
+                "rateLimitsByLimitId": {
+                    "codex": {
+                        "limitId": "codex",
+                        "limitName": "Codex",
+                        "planType": "pro",
+                        "primary": {
+                            "usedPercent": 25,
+                            "windowDurationMins": 300
+                        }
+                    }
+                }
+            }),
+            &json!({}),
+            123,
+        )
+        .unwrap();
+
+        assert_eq!(usage.windows.len(), 1);
+        assert_eq!(usage.windows[0].remaining_percent, 75);
+        assert_eq!(usage.plan_type.as_deref(), Some("pro"));
     }
 
     #[test]
