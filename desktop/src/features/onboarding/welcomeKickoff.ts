@@ -4,6 +4,7 @@ import {
   managedAgentsQueryKey,
   useAcpRuntimesQuery,
   useManagedAgentsQuery,
+  useRelayAgentsQuery,
 } from "@/features/agents/hooks";
 import { useGlobalAgentConfig } from "@/features/agents/useGlobalAgentConfig";
 import { useCommunities } from "@/features/communities/useCommunities";
@@ -11,6 +12,7 @@ import { welcomeKickoffMarker } from "@/features/onboarding/devFreshOnboarding";
 import { resolveAgentReadiness } from "@/features/onboarding/ui/agentReadiness";
 import {
   ensureWelcomeTeam,
+  hasCompleteRemoteWelcomeTeam,
   pickWelcomeTeamStarterAgentForRelay,
   WELCOME_TEAM_STARTERS,
   type WelcomeTeamStarterDefinition,
@@ -493,6 +495,7 @@ export function useWelcomeKickoff(
   const { activeCommunity } = useCommunities();
   const runtimesQuery = useAcpRuntimesQuery();
   const managedAgentsQuery = useManagedAgentsQuery();
+  const relayAgentsQuery = useRelayAgentsQuery();
   const { globalConfig, isLoading: configLoading } = useGlobalAgentConfig();
   const channelId = activeChannel?.id ?? null;
   const isActiveWelcome = isWelcomeChannel(activeChannel);
@@ -544,6 +547,14 @@ export function useWelcomeKickoff(
       ),
     [activeCommunity?.relayUrl, managedAgentsQuery.data],
   );
+  const hasRemoteWelcomeTeam = React.useMemo(
+    () =>
+      hasCompleteRemoteWelcomeTeam(
+        relayAgentsQuery.data ?? [],
+        new Set((managedAgentsQuery.data ?? []).map((agent) => agent.pubkey)),
+      ),
+    [managedAgentsQuery.data, relayAgentsQuery.data],
+  );
   const readiness = React.useMemo(
     () => resolveAgentReadiness(runtimesQuery.data ?? [], globalConfig),
     [globalConfig, runtimesQuery.data],
@@ -552,6 +563,7 @@ export function useWelcomeKickoff(
     if (
       !channelId ||
       !isActiveWelcome ||
+      hasRemoteWelcomeTeam ||
       configLoading ||
       runtimesQuery.isPending
     ) {
@@ -684,6 +696,7 @@ export function useWelcomeKickoff(
     activeCommunity?.relayUrl,
     channelId,
     configLoading,
+    hasRemoteWelcomeTeam,
     isActiveWelcome,
     onKickoffOpenerPosted,
     queryClient,
@@ -709,6 +722,7 @@ export function useWelcomeKickoff(
     if (
       !channelId ||
       !isActiveWelcome ||
+      hasRemoteWelcomeTeam ||
       !agentSet ||
       closerInFlight.has(channelId) ||
       // Respect the latch, not just the events. Retiring the opener-thread
@@ -841,6 +855,7 @@ export function useWelcomeKickoff(
   }, [
     activeCommunity?.relayUrl,
     agentSet,
+    hasRemoteWelcomeTeam,
     kickoffEvents,
     kickoffResolved,
     channelId,

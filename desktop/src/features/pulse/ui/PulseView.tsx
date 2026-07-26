@@ -106,6 +106,7 @@ export function PulseView({ currentPubkey }: PulseViewProps) {
           avatarUrl: null,
           ownerPubkey: null,
           isOwnerManaged: true,
+          ownerManagedPersonaId: null,
           agentType: agent.agentCommand,
           channels: [],
           channelIds: [],

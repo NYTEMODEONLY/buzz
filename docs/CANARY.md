@@ -16,12 +16,15 @@ distribution-only commits.
 
 ## Custom stack
 
-Canary currently carries four product feature tracks:
+Canary currently carries five product feature tracks:
 
 1. Hermes ACP runtime and first-class external-agent presentation.
 2. Detached external-agent activity visibility.
 3. A local provider allowance indicator, including the global top-chrome meter.
 4. Sidebar categories and exact manual channel ordering.
+5. Cross-install agent identity continuity: another Buzz installation owned by
+   the same human reuses the canonical relay identities instead of minting a
+   second Welcome Team.
 
 Footer attribution and official-Buzz isolation are distribution infrastructure,
 not additional product features. The exact source commits and current upstream
@@ -49,6 +52,24 @@ when both apps are installed.
 The build fails closed unless its updater public key and exact fork-owned
 manifest endpoint are supplied. A missing signing setup is a release blocker,
 not a reason to reuse Block's trust root.
+
+## Agent identity continuity
+
+App-data and keyring isolation protect secrets; they must not create a second
+logical agent team. Agent identity is the Nostr pubkey, not the card name.
+
+When the signed-in owner already has a complete Welcome Team declared on the
+relay, Canary:
+
+- does not mint replacement Fizz/Honey/Bumble identities;
+- shows the existing identities as `Managed elsewhere`;
+- uses those same pubkeys for mentions, messages, DMs, profiles, activity, and
+  owner-visible memory; and
+- leaves start, stop, edit, and secret-bearing runtime controls on the client
+  that actually holds each agent key.
+
+This provides one agent identity/runtime across official Buzz and Canary while
+preserving the side-by-side security boundary.
 
 ## Sidebar organization data
 

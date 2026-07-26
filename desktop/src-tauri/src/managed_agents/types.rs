@@ -186,6 +186,11 @@ pub struct RelayAgentInfo {
     /// whether the current Desktop installation has the agent's local secrets.
     #[serde(default)]
     pub is_owner_managed: bool,
+    /// Persona coordinate from the current owner's kind:30177 declaration.
+    /// Present only for owner-managed relay agents; lets another isolated
+    /// Desktop recognize an existing built-in agent without importing secrets.
+    #[serde(default)]
+    pub owner_managed_persona_id: Option<String>,
     pub agent_type: String,
     pub channels: Vec<String>,
     #[serde(default)]

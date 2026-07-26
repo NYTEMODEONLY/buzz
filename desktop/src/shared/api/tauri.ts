@@ -109,6 +109,7 @@ type RawRelayAgent = {
   avatar_url?: string | null;
   owner_pubkey?: string | null;
   is_owner_managed?: boolean;
+  owner_managed_persona_id?: string | null;
   agent_type: string;
   channels: string[];
   channel_ids: string[];
@@ -676,6 +677,7 @@ function fromRawRelayAgent(agent: RawRelayAgent): RelayAgent {
     avatarUrl: agent.avatar_url ?? null,
     ownerPubkey: agent.owner_pubkey ?? null,
     isOwnerManaged: agent.is_owner_managed ?? false,
+    ownerManagedPersonaId: agent.owner_managed_persona_id ?? null,
     agentType: agent.agent_type,
     channels: agent.channels,
     channelIds: agent.channel_ids ?? [],

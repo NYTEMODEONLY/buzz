@@ -243,6 +243,52 @@ test("owned external agents are first-class, labeled, and presentation-customiza
   ).toContainText("ALICE");
 });
 
+test("agents managed by another Buzz installation keep their canonical identity", async ({
+  page,
+}) => {
+  const canonicalAgents = [
+    {
+      pubkey: "1".repeat(64),
+      name: "MUSE",
+      personaId: "builtin:fizz",
+    },
+    {
+      pubkey: "2".repeat(64),
+      name: "XENA",
+      personaId: "builtin:honey",
+    },
+    {
+      pubkey: "3".repeat(64),
+      name: "ZOEY",
+      personaId: "builtin:bumble",
+    },
+  ];
+  await installMockBridge(page, {
+    relayAgents: canonicalAgents.map((agent) => ({
+      pubkey: agent.pubkey,
+      name: agent.name,
+      ownerPubkey: TEST_IDENTITIES.tyler.pubkey,
+      isOwnerManaged: true,
+      ownerManagedPersonaId: agent.personaId,
+      agentType: "codex",
+      channelNames: ["general"],
+      status: "online",
+    })),
+  });
+  await gotoApp(page);
+  await page.getByTestId("open-agents-view").click();
+
+  for (const agent of canonicalAgents) {
+    const card = page.getByTestId(`external-agent-card-${agent.pubkey}`);
+    await expect(card).toBeVisible();
+    await expect(card).toContainText(agent.name);
+    await expect(card).toContainText("Managed elsewhere");
+    await expect(
+      card.getByTestId(`agent-runtime-start-${agent.pubkey}`),
+    ).toHaveCount(0);
+  }
+});
+
 test("built-in personas are used from the catalog dialog", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 420 });
   await gotoApp(page);

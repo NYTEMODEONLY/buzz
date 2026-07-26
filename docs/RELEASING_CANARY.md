@@ -54,7 +54,13 @@ Before describing auto-update as working:
    ordering, hover/focus/touch drag-handle behavior, channels, DMs, and restart
    persistence.
 6. Verify official Buzz app data and keyring entries remain untouched.
-7. Verify the manifest signature and asset URLs, then exercise rollback using
+7. With the same human identity signed into official Buzz and Canary, verify
+   Canary shows the official client's agents with the exact same pubkeys as
+   `Managed elsewhere`, does not mint a replacement Welcome Team, and cannot
+   start, stop, or edit those remote-owned runtimes.
+8. Send a mention from each client and verify both messages target the same
+   agent pubkey and receive replies from that pubkey.
+9. Verify the manifest signature and asset URLs, then exercise rollback using
    the retained N installer.
 
 Until that gate is complete, documentation must say source-only or unsigned

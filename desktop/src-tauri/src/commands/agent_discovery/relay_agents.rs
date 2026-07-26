@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use buzz_core_pkg::kind::KIND_MANAGED_AGENT;
 use tauri::State;
@@ -20,7 +20,8 @@ pub async fn list_relay_agents(state: State<'_, AppState>) -> Result<Vec<RelayAg
 
     // A side-by-side Canary deliberately has isolated local secrets. Query the
     // current owner's durable managed-agent coordinates with the directory so
-    // agents managed by another Buzz install do not look external here.
+    // agents managed by another Buzz install remain identifiable as managed
+    // elsewhere, including their public persona coordinate.
     //
     // Keep these as separately bounded requests. A combined unbounded query
     // can hit the relay's aggregate result cap and silently drop the oldest
@@ -38,7 +39,7 @@ pub async fn list_relay_agents(state: State<'_, AppState>) -> Result<Vec<RelayAg
         query_relay(&state, &directory_filter),
         query_relay(&state, &owner_managed_filter),
     )?;
-    let owner_managed_pubkeys = owner_managed_agent_pubkeys(&owner_managed_events, &owner_pubkey);
+    let owner_managed_agents = owner_managed_agents(&owner_managed_events, &owner_pubkey);
 
     let value = nostr_convert::agents_from_events(&directory_events);
     let agents = value
@@ -48,12 +49,18 @@ pub async fn list_relay_agents(state: State<'_, AppState>) -> Result<Vec<RelayAg
     let mut agents: Vec<RelayAgentInfo> =
         serde_json::from_value(agents).map_err(|e| format!("agent parse failed: {e}"))?;
     for agent in &mut agents {
-        agent.is_owner_managed = owner_managed_pubkeys.contains(&agent.pubkey);
+        if let Some(persona_id) = owner_managed_agents.get(&agent.pubkey) {
+            agent.is_owner_managed = true;
+            agent.owner_managed_persona_id = persona_id.clone();
+        }
     }
     Ok(agents)
 }
 
-fn owner_managed_agent_pubkeys(events: &[nostr::Event], owner_pubkey: &str) -> HashSet<String> {
+fn owner_managed_agents(
+    events: &[nostr::Event],
+    owner_pubkey: &str,
+) -> HashMap<String, Option<String>> {
     events
         .iter()
         .filter(|event| {
@@ -61,7 +68,7 @@ fn owner_managed_agent_pubkeys(events: &[nostr::Event], owner_pubkey: &str) -> H
                 && event.pubkey.to_hex() == owner_pubkey
         })
         .filter_map(|event| {
-            event.tags.iter().find_map(|tag| {
+            let pubkey = event.tags.iter().find_map(|tag| {
                 let values = tag.as_slice();
                 if values.first().map(|value| value.as_str()) != Some("d") {
                     return None;
@@ -70,7 +77,12 @@ fn owner_managed_agent_pubkeys(events: &[nostr::Event], owner_pubkey: &str) -> H
                 nostr::PublicKey::from_hex(pubkey)
                     .ok()
                     .map(|parsed| parsed.to_hex())
-            })
+            })?;
+            let persona_id =
+                crate::managed_agents::agent_events::managed_agent_content_from_event(event)
+                    .ok()
+                .and_then(|content| content.persona_id);
+            Some((pubkey, persona_id))
         })
         .collect()
 }
@@ -86,13 +98,15 @@ mod tests {
         let managed_agent = nostr::Keys::generate().public_key().to_hex();
         let foreign_agent = nostr::Keys::generate().public_key().to_hex();
 
-        let managed =
-            nostr::EventBuilder::new(nostr::Kind::Custom(KIND_MANAGED_AGENT as u16), "{}")
-                .tags(vec![
-                    nostr::Tag::parse(["d", managed_agent.as_str()]).unwrap()
-                ])
-                .sign_with_keys(&owner)
-                .unwrap();
+        let managed = nostr::EventBuilder::new(
+            nostr::Kind::Custom(KIND_MANAGED_AGENT as u16),
+            r#"{"name":"MUSE","persona_id":"builtin:fizz","parallelism":1,"respond_to":"owner-only"}"#,
+        )
+        .tags(vec![
+            nostr::Tag::parse(["d", managed_agent.as_str()]).unwrap()
+        ])
+        .sign_with_keys(&owner)
+        .unwrap();
         let foreign =
             nostr::EventBuilder::new(nostr::Kind::Custom(KIND_MANAGED_AGENT as u16), "{}")
                 .tags(vec![
@@ -106,11 +120,12 @@ mod tests {
                 .sign_with_keys(&owner)
                 .unwrap();
 
-        let pubkeys = owner_managed_agent_pubkeys(
-            &[managed, foreign, malformed],
-            &owner.public_key().to_hex(),
-        );
+        let agents =
+            owner_managed_agents(&[managed, foreign, malformed], &owner.public_key().to_hex());
 
-        assert_eq!(pubkeys, HashSet::from([managed_agent]));
+        assert_eq!(
+            agents,
+            HashMap::from([(managed_agent, Some("builtin:fizz".to_string()))])
+        );
     }
 }

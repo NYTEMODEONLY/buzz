@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   externalRelayAgents,
   formatExternalAgentType,
+  ownerManagedRelayAgents,
 } from "./externalAgentDirectory.ts";
 
 const relayAgent = (overrides) => ({
@@ -12,6 +13,7 @@ const relayAgent = (overrides) => ({
   avatarUrl: null,
   ownerPubkey: "b".repeat(64),
   isOwnerManaged: false,
+  ownerManagedPersonaId: null,
   agentType: "agent",
   channels: [],
   channelIds: [],
@@ -55,6 +57,34 @@ test("also excludes agents managed by this local installation", () => {
   assert.deepEqual(
     externalRelayAgents([local], new Set(["a".repeat(64)]), new Set()),
     [],
+  );
+});
+
+test("shows owner-managed agents from another isolated installation", () => {
+  const muse = relayAgent({
+    pubkey: "1".repeat(64),
+    name: "MUSE",
+    isOwnerManaged: true,
+    ownerManagedPersonaId: "builtin:fizz",
+  });
+  const localXena = relayAgent({
+    pubkey: "2".repeat(64),
+    name: "XENA",
+    isOwnerManaged: true,
+    ownerManagedPersonaId: "builtin:honey",
+  });
+  const alice = relayAgent({
+    pubkey: "3".repeat(64),
+    name: "ALICE",
+  });
+
+  assert.deepEqual(
+    ownerManagedRelayAgents(
+      [muse, localXena, alice],
+      new Set([localXena.pubkey]),
+      new Set(["XENA"]),
+    ),
+    [muse],
   );
 });
 

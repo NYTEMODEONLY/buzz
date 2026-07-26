@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   activateWelcomeTeamPersonasSequentially,
   buildWelcomeStarterCreateInput,
+  hasCompleteRemoteWelcomeTeam,
   LEGACY_WELCOME_GUIDE_SYSTEM_PROMPT,
   pickWelcomeGuideAgent,
   pickWelcomeGuideAgentForRelay,
@@ -55,6 +56,25 @@ function makeAgent(overrides = {}) {
     respondTo: "owner-only",
     respondToAllowlist: [],
     teamId: WELCOME_TEAM_ID,
+    ...overrides,
+  };
+}
+
+function makeRelayAgent(overrides = {}) {
+  return {
+    pubkey: PUB_A,
+    name: "MUSE",
+    avatarUrl: null,
+    ownerPubkey: "d".repeat(64),
+    isOwnerManaged: true,
+    ownerManagedPersonaId: WELCOME_GUIDE_PERSONA_ID,
+    agentType: "agent",
+    channels: [],
+    channelIds: [],
+    capabilities: [],
+    status: "online",
+    respondTo: "owner-only",
+    respondToAllowlist: [],
     ...overrides,
   };
 }
@@ -296,6 +316,38 @@ test("welcome team starter definitions and role identities are stable", () => {
     { name: "Honey", personaId: "builtin:honey", role: "teammate" },
     { name: "Bumble", personaId: "builtin:bumble", role: "teammate" },
   ]);
+});
+
+test("complete remote Welcome Team prevents duplicate identity minting", () => {
+  const remoteTeam = WELCOME_TEAM_STARTERS.map((starter, index) =>
+    makeRelayAgent({
+      pubkey: `${index + 1}`.repeat(64),
+      name: ["MUSE", "XENA", "ZOEY"][index],
+      ownerManagedPersonaId: starter.personaId,
+    }),
+  );
+
+  assert.equal(hasCompleteRemoteWelcomeTeam(remoteTeam, new Set()), true);
+  assert.equal(
+    hasCompleteRemoteWelcomeTeam(remoteTeam, new Set([remoteTeam[0].pubkey])),
+    false,
+  );
+  assert.equal(
+    hasCompleteRemoteWelcomeTeam(remoteTeam.slice(0, 2), new Set()),
+    false,
+  );
+});
+
+test("unowned agents with Welcome persona ids never suppress local provisioning", () => {
+  const remoteTeam = WELCOME_TEAM_STARTERS.map((starter, index) =>
+    makeRelayAgent({
+      pubkey: `${index + 4}`.repeat(64),
+      isOwnerManaged: false,
+      ownerManagedPersonaId: starter.personaId,
+    }),
+  );
+
+  assert.equal(hasCompleteRemoteWelcomeTeam(remoteTeam, new Set()), false);
 });
 
 test("starter matching ignores user agents with a Welcome persona", () => {

@@ -5,6 +5,7 @@ import { externalAgentPresentationScope } from "@/features/agents/externalAgentP
 import {
   externalRelayAgents,
   formatExternalAgentType,
+  ownerManagedRelayAgents,
 } from "@/features/agents/lib/externalAgentDirectory";
 import { useCommunities } from "@/features/communities/useCommunities";
 import { usePresenceQuery } from "@/features/presence/hooks";
@@ -45,31 +46,34 @@ export function RelayDirectorySection({
     relayUrl: activeCommunity?.relayUrl,
   });
 
-  // A side-by-side Desktop install intentionally has isolated local secrets.
-  // Exclude both agents managed here and agents the current owner manages from
-  // another Buzz install; only independently hosted runtimes belong below.
-  const otherAgents = React.useMemo(
-    () => externalRelayAgents(relayAgents, managedPubkeys, managedNames),
+  // A side-by-side Desktop install intentionally keeps secrets isolated, but
+  // the owner's relay-declared agents must still be visible and mentionable.
+  // Runtime controls remain exclusively on the installation holding the key.
+  const communityAgents = React.useMemo(
+    () => [
+      ...ownerManagedRelayAgents(relayAgents, managedPubkeys, managedNames),
+      ...externalRelayAgents(relayAgents, managedPubkeys, managedNames),
+    ],
     [relayAgents, managedPubkeys, managedNames],
   );
   const otherAgentPubkeys = React.useMemo(
-    () => otherAgents.map((agent) => normalizePubkey(agent.pubkey)),
-    [otherAgents],
+    () => communityAgents.map((agent) => normalizePubkey(agent.pubkey)),
+    [communityAgents],
   );
   const presenceQuery = usePresenceQuery(otherAgentPubkeys, {
     enabled: otherAgentPubkeys.length > 0,
   });
 
   const filteredAgents = React.useMemo(() => {
-    if (!searchQuery.trim()) return otherAgents;
+    if (!searchQuery.trim()) return communityAgents;
     const query = searchQuery.toLowerCase();
-    return otherAgents.filter(
+    return communityAgents.filter(
       (agent) =>
         agent.name.toLowerCase().includes(query) ||
         agent.agentType.toLowerCase().includes(query) ||
         agent.channels.some((ch) => ch.toLowerCase().includes(query)),
     );
-  }, [otherAgents, searchQuery]);
+  }, [communityAgents, searchQuery]);
 
   const sortedAgents = React.useMemo(
     () =>
@@ -79,7 +83,7 @@ export function RelayDirectorySection({
     [filteredAgents],
   );
 
-  if (isLoading || otherAgents.length === 0) return null;
+  if (isLoading || communityAgents.length === 0) return null;
 
   return (
     <section className="space-y-3">
@@ -95,15 +99,16 @@ export function RelayDirectorySection({
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
           )}
           <h2 className="text-lg font-semibold tracking-tight">
-            External agents
+            Agents in this community
           </h2>
           <span className="text-sm text-muted-foreground">
-            ({otherAgents.length})
+            ({communityAgents.length})
           </span>
         </button>
         <p className="pl-6 text-sm text-muted-foreground">
-          Agents hosted outside this Desktop. You can mention them, but runtime
-          controls stay with their host.
+          Your agents from another Buzz installation and independently hosted
+          agents. You can mention them here; runtime controls stay with their
+          host.
         </p>
       </div>
 
@@ -165,7 +170,11 @@ export function RelayDirectorySection({
                     onClick={() => onOpenAgentProfile(agent.pubkey)}
                     statusBadge={
                       <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                        <Badge variant="info">External</Badge>
+                        <Badge variant="info">
+                          {agent.isOwnerManaged
+                            ? "Managed elsewhere"
+                            : "External"}
+                        </Badge>
                         <PresenceBadge
                           className="border-0 bg-transparent px-0 py-0 text-2xs"
                           status={liveStatus}

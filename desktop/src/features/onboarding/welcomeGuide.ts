@@ -17,6 +17,7 @@ import type {
   AgentPersona,
   CreateManagedAgentInput,
   ManagedAgent,
+  RelayAgent,
 } from "@/shared/api/types";
 import { normalizePubkey } from "@/shared/lib/pubkey";
 
@@ -117,6 +118,31 @@ export function pickWelcomeTeamStarterAgentForRelay(
         agent.personaId === starter.personaId &&
         isAgentScopedToRelay(agent, relayUrl),
     ),
+  );
+}
+
+/**
+ * True when another isolated Buzz installation already manages the complete
+ * built-in Welcome Team. The current installation must not mint replacements:
+ * those would be different Nostr identities despite sharing persona names.
+ */
+export function hasCompleteRemoteWelcomeTeam(
+  relayAgents: readonly RelayAgent[],
+  locallyManagedPubkeys: ReadonlySet<string>,
+) {
+  const localPubkeys = new Set([...locallyManagedPubkeys].map(normalizePubkey));
+  const remotePersonaIds = new Set(
+    relayAgents
+      .filter(
+        (agent) =>
+          agent.isOwnerManaged &&
+          !localPubkeys.has(normalizePubkey(agent.pubkey)),
+      )
+      .map((agent) => agent.ownerManagedPersonaId)
+      .filter((personaId): personaId is string => personaId !== null),
+  );
+  return WELCOME_TEAM_STARTERS.every((starter) =>
+    remotePersonaIds.has(starter.personaId),
   );
 }
 

@@ -117,7 +117,12 @@ without a parallel TypeScript runtime list.
    persisted `status` field in kind `10100`. Cross-install classification uses
    the current owner's kind `30177` managed-agent coordinates: an agent managed
    by another isolated Buzz Desktop install is still managed, not external.
-   The directory card's runtime label comes from kind `10100` `agent_type`.
+   A client without that agent's key renders it as `Managed elsewhere`, keeps
+   runtime/edit controls disabled, and continues using the same pubkey for
+   profiles, mentions, messages, DMs, activity, and memory. A complete remote
+   built-in Welcome Team suppresses local Welcome-team provisioning; never mint
+   same-persona replacements just because the local keyring is isolated. The
+   directory card's runtime label comes from kind `10100` `agent_type`.
 11. **Owner-declared relay agents participate in observer ingestion.** An
    external agent with a verified NIP-OA owner belongs in the app-global
    kind-`24200` ingestion list as `deployed`; non-owned and owner-unknown relay

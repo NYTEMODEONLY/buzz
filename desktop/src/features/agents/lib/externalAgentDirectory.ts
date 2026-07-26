@@ -24,6 +24,25 @@ export function externalRelayAgents(
   );
 }
 
+export function ownerManagedRelayAgents(
+  relayAgents: readonly RelayAgent[],
+  locallyManagedPubkeys: ReadonlySet<string>,
+  locallyManagedNames: ReadonlySet<string>,
+): RelayAgent[] {
+  const normalizedLocalPubkeys = new Set(
+    [...locallyManagedPubkeys].map(normalizePubkey),
+  );
+  const normalizedLocalNames = new Set(
+    [...locallyManagedNames].map((name) => name.trim().toLowerCase()),
+  );
+  return relayAgents.filter(
+    (agent) =>
+      agent.isOwnerManaged &&
+      !normalizedLocalPubkeys.has(normalizePubkey(agent.pubkey)) &&
+      !normalizedLocalNames.has(agent.name.trim().toLowerCase()),
+  );
+}
+
 export function formatExternalAgentType(agentType: string): string {
   const normalized = agentType.trim().toLowerCase();
   if (!normalized || normalized === "agent") {

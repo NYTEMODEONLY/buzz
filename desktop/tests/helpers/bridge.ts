@@ -76,6 +76,8 @@ type MockRelayAgentSeed = {
   name: string;
   avatarUrl?: string | null;
   ownerPubkey?: string | null;
+  isOwnerManaged?: boolean;
+  ownerManagedPersonaId?: string | null;
   agentType?: string;
   capabilities?: string[];
   respondTo?: "owner-only" | "allowlist" | "anyone";

@@ -17,7 +17,10 @@ import {
 } from "@/features/onboarding/welcome";
 import { forceFreshOnboarding } from "@/features/onboarding/devFreshOnboarding";
 import { ensureWelcomeCanvas } from "@/features/onboarding/welcomeCanvas";
-import { ensureWelcomeTeam } from "@/features/onboarding/welcomeGuide";
+import {
+  ensureWelcomeTeam,
+  hasCompleteRemoteWelcomeTeam,
+} from "@/features/onboarding/welcomeGuide";
 import { useProfileQuery } from "@/features/profile/hooks";
 import { useCommunities } from "@/features/communities/useCommunities";
 import { useIdentityQuery } from "@/shared/api/hooks";
@@ -28,6 +31,8 @@ import {
   ensureStarterChannels as ensureStarterChannelsCommand,
   getChannelMembers,
   getChannels,
+  listManagedAgents,
+  listRelayAgents,
   updateChannel,
 } from "@/shared/api/tauri";
 
@@ -51,7 +56,17 @@ function seedWelcomeExperience(
 
   const promise = (async () => {
     try {
-      await ensureWelcomeTeam(channelId, communityScope);
+      const [managedAgents, relayAgents] = await Promise.all([
+        listManagedAgents(),
+        listRelayAgents(),
+      ]);
+      const hasRemoteWelcomeTeam = hasCompleteRemoteWelcomeTeam(
+        relayAgents,
+        new Set(managedAgents.map((agent) => agent.pubkey)),
+      );
+      if (!hasRemoteWelcomeTeam) {
+        await ensureWelcomeTeam(channelId, communityScope);
+      }
       await ensureWelcomeCanvas(channelId);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: managedAgentsQueryKey }),
