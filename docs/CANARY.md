@@ -14,6 +14,19 @@ Canary never merges back into `main`. Focused `fizz/*` branches remain based on
 upstream `main` so they can be submitted to Block without carrying
 distribution-only commits.
 
+## Custom stack
+
+Canary currently carries four product feature tracks:
+
+1. Hermes ACP runtime and first-class external-agent presentation.
+2. Detached external-agent activity visibility.
+3. A local provider allowance indicator, including the global top-chrome meter.
+4. Sidebar categories and exact manual channel ordering.
+
+Footer attribution and official-Buzz isolation are distribution infrastructure,
+not additional product features. The exact source commits and current upstream
+PR mapping live in [CANARY_FEATURES.md](CANARY_FEATURES.md).
+
 ## Distribution boundary
 
 Public releases must use all of these values together:

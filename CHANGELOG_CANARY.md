@@ -7,6 +7,10 @@
   rename/delete behavior, and encrypted relay-scoped synchronization.
 - Fixed a startup synchronization race that could briefly create and then
   remove a category before its encrypted local edit reached the relay.
+- Hid channel drag handles at rest on hover-capable devices while keeping them
+  visible on row hover, keyboard focus, active drag, and non-hover/touch input.
+- Fixed draggable channel rows becoming visually blank in WKWebView while
+  remaining present in the DOM and accessibility tree.
 - Integrated the Hermes ACP and external-agent feature stack.
 - Added detached external-agent activity transport.
 - Added local provider allowance visibility for Codex with honest unsupported

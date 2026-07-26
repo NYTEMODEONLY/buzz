@@ -26,17 +26,20 @@
 
 ## Canary features
 
+The current Canary carries **four product feature tracks** plus the
+distribution-only isolation and attribution needed to ship them safely:
+
 | Feature | Current source state |
 |---|---|
-| Hermes ACP runtime and first-class external agents | Integrated |
-| Detached external-agent activity visibility | Integrated |
-| Local provider allowance indicator | Codex supported; Claude and Grok shown honestly as unsupported |
-| Sidebar categories and manual channel order | Integrated; pointer and keyboard reordering with encrypted per-community sync |
+| Hermes ACP runtime and first-class external agents | Integrated; proposed upstream in [block/buzz#2468](https://github.com/block/buzz/pull/2468) |
+| Detached external-agent activity visibility | Integrated as a dependent Canary patch |
+| Local provider allowance indicator | Codex supported; Claude and Grok shown honestly as unsupported; proposed upstream in [block/buzz#2765](https://github.com/block/buzz/pull/2765) |
+| Sidebar categories and manual channel order | Integrated; pointer and keyboard reordering, hover-only drag handles, and encrypted per-community sync; proposed upstream in [block/buzz#2947](https://github.com/block/buzz/pull/2947) |
 | Canary footer attribution | `canary by nytemode` links to [nytemode.com](https://nytemode.com) |
 | Official-Buzz isolation | Separate bundle data, keyring, deep links, release links, and updater trust |
 
 See the evidence-bound [feature inventory](docs/CANARY_FEATURES.md) for source
-commits, upstream PRs, limitations, and release proof status.
+commits, all three current upstream PRs, limitations, and release proof status.
 See [Sidebar categories and manual order](docs/SIDEBAR_CATEGORIES.md) for the
 user workflow and persistence contract.
 

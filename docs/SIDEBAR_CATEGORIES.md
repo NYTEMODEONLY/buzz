@@ -21,6 +21,11 @@ channel grip to its exact position. With the keyboard, focus the grip, press
 Space to pick up, use the arrow keys to move, then press Space to drop or
 Escape to cancel.
 
+On pointer devices, the grip stays visually hidden until its channel row is
+hovered. It remains mounted and accessible at rest, becomes visible when
+keyboard-focused or actively dragging, and stays visible on non-hover/touch
+devices so every input method retains a move affordance.
+
 Switching back to **A-Z** or **Recent** keeps the saved manual order for the
 next time Manual is selected. Forums and direct messages continue to use A-Z
 or Recent.
