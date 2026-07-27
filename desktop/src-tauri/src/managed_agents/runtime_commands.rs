@@ -446,16 +446,22 @@ fn unkeyable_failed_status(
     }
 }
 
-/// Spawn a lazy harness pair for every eligible (agent, community) pair.
+fn should_reconcile_runtime_pair(record: &super::ManagedAgentRecord) -> bool {
+    record.is_active && record.backend == BackendKind::Local
+}
+
+fn should_start_pair_lazily(record: &super::ManagedAgentRecord) -> bool {
+    !record.start_on_app_launch
+}
+
+/// Spawn a harness pair for every eligible (agent, community) pair.
 ///
-/// Eligibility is deliberately gated on `start_on_app_launch`: auto-start is
-/// the *proactive fan-out* policy — "keep this agent warm in every community" —
-/// not a correctness prerequisite. A manual-start agent still works on demand
-/// everywhere: attaching it to a channel ensures its pair, an @mention wakes a
-/// pair, the members sidebar and Settings controls start pairs, and restore
-/// preserves running pairs across relaunch. Fanning out warm-socket pairs for
-/// agents the user chose *not* to auto-start would contradict that choice, so
-/// reconcile leaves them alone until something explicitly asks for them.
+/// Every active local agent gets a subscribed harness so a relay-delivered
+/// @mention cannot be the same event that starts the listener and then vanish
+/// in the startup gap. `start_on_app_launch` still controls the expensive part:
+/// enabled agents initialize their ACP/LLM pool eagerly; disabled agents keep
+/// only the lightweight relay socket warm and wake the pool after accepted work
+/// has been queued.
 #[tauri::command]
 pub async fn reconcile_managed_agent_runtimes(
     communities: Vec<super::ManagedAgentCommunityTarget>,
@@ -468,10 +474,10 @@ pub async fn reconcile_managed_agent_runtimes(
     for community in communities {
         for record in records
             .iter()
-            .filter(|record| record.start_on_app_launch && record.backend == BackendKind::Local)
+            .filter(|record| should_reconcile_runtime_pair(record))
         // The legacy per-record relay pin is deliberately ignored here — see
-        // `effective_agent_relay_url`. Every local auto-start agent fans out
-        // to every configured community.
+        // `effective_agent_relay_url`. Every active local agent fans out to
+        // every configured community.
         {
             jobs.push((record.clone(), community.relay_url.clone()));
         }
@@ -505,7 +511,7 @@ pub async fn reconcile_managed_agent_runtimes(
                     match start_pair(
                         record.pubkey.clone(),
                         key.relay_url.clone(),
-                        true,
+                        should_start_pair_lazily(&record),
                         Some(&record.updated_at),
                         app.clone(),
                     ) {
@@ -620,6 +626,34 @@ mod tests {
                 "wss://two.example"
             );
         }
+    }
+
+    #[test]
+    fn manual_start_agent_still_gets_a_warm_relay_pair() {
+        let mut record = record_with_relay("");
+        record.start_on_app_launch = false;
+
+        assert!(
+            should_reconcile_runtime_pair(&record),
+            "manual-start must defer only the ACP pool, not the relay listener"
+        );
+        assert!(should_start_pair_lazily(&record));
+        record.start_on_app_launch = true;
+        assert!(!should_start_pair_lazily(&record));
+    }
+
+    #[test]
+    fn inactive_or_provider_agents_do_not_get_local_relay_pairs() {
+        let mut inactive = record_with_relay("");
+        inactive.is_active = false;
+        assert!(!should_reconcile_runtime_pair(&inactive));
+
+        let mut provider = record_with_relay("");
+        provider.backend = BackendKind::Provider {
+            id: "test-provider".into(),
+            config: serde_json::json!({}),
+        };
+        assert!(!should_reconcile_runtime_pair(&provider));
     }
 
     #[test]
