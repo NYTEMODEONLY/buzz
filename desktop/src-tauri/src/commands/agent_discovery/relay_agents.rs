@@ -164,10 +164,7 @@ fn latest_directory_events(events: impl IntoIterator<Item = nostr::Event>) -> Ve
     latest_by_author.into_values().collect()
 }
 
-fn retired_owner_managed_pubkeys(
-    events: &[nostr::Event],
-    owner_pubkey: &str,
-) -> HashSet<String> {
+fn retired_owner_managed_pubkeys(events: &[nostr::Event], owner_pubkey: &str) -> HashSet<String> {
     events
         .iter()
         .filter(|event| event.kind.as_u16() == 5 && event.pubkey.to_hex() == owner_pubkey)

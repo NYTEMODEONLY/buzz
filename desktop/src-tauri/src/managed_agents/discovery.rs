@@ -9,8 +9,8 @@ use crate::managed_agents::{
     AcpAvailabilityStatus, AcpRuntimeCatalogEntry, AuthStatus, CommandAvailabilityInfo,
 };
 
-mod runtime_metadata;
 mod grok;
+mod runtime_metadata;
 
 pub(crate) use runtime_metadata::KnownAcpRuntime;
 
