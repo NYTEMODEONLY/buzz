@@ -1,4 +1,4 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{hash_map::Entry, HashMap, HashSet};
 
 use buzz_core_pkg::kind::KIND_MANAGED_AGENT;
 use tauri::State;
@@ -66,6 +66,36 @@ pub async fn list_relay_agents(state: State<'_, AppState>) -> Result<Vec<RelayAg
             .into_iter()
             .chain(owner_managed_directory_events),
     );
+    let retired_coordinates = directory_events
+        .iter()
+        .map(|event| {
+            format!(
+                "{KIND_MANAGED_AGENT}:{owner_pubkey}:{}",
+                event.pubkey.to_hex()
+            )
+        })
+        .collect::<Vec<_>>();
+    let retired_owner_managed_events = if retired_coordinates.is_empty() {
+        vec![]
+    } else {
+        query_relay(
+            &state,
+            &[serde_json::json!({
+                "authors": [owner_pubkey],
+                "kinds": [5],
+                "#a": retired_coordinates,
+                "limit": RELAY_AGENT_FETCH_LIMIT,
+            })],
+        )
+        .await?
+    };
+    let retired_owner_managed_pubkeys =
+        retired_owner_managed_pubkeys(&retired_owner_managed_events, &owner_pubkey);
+    let directory_events = active_directory_events(
+        directory_events,
+        &owner_managed_agents,
+        &retired_owner_managed_pubkeys,
+    );
 
     let value = nostr_convert::agents_from_events(&directory_events);
     let agents = value
@@ -132,6 +162,47 @@ fn latest_directory_events(events: impl IntoIterator<Item = nostr::Event>) -> Ve
         }
     }
     latest_by_author.into_values().collect()
+}
+
+fn retired_owner_managed_pubkeys(
+    events: &[nostr::Event],
+    owner_pubkey: &str,
+) -> HashSet<String> {
+    events
+        .iter()
+        .filter(|event| event.kind.as_u16() == 5 && event.pubkey.to_hex() == owner_pubkey)
+        .flat_map(|event| event.tags.iter())
+        .filter_map(|tag| {
+            let values = tag.as_slice();
+            if values.first().map(String::as_str) != Some("a") {
+                return None;
+            }
+            let mut coordinate = values.get(1)?.splitn(3, ':');
+            if coordinate.next()?.parse::<u32>().ok()? != KIND_MANAGED_AGENT
+                || coordinate.next()? != owner_pubkey
+            {
+                return None;
+            }
+            nostr::PublicKey::from_hex(coordinate.next()?)
+                .ok()
+                .map(|pubkey| pubkey.to_hex())
+        })
+        .collect()
+}
+
+fn active_directory_events(
+    events: Vec<nostr::Event>,
+    owner_managed_agents: &HashMap<String, ManagedAgentEventContent>,
+    retired_owner_managed_pubkeys: &HashSet<String>,
+) -> Vec<nostr::Event> {
+    events
+        .into_iter()
+        .filter(|event| {
+            let pubkey = event.pubkey.to_hex();
+            !retired_owner_managed_pubkeys.contains(&pubkey)
+                || owner_managed_agents.contains_key(&pubkey)
+        })
+        .collect()
 }
 
 fn owner_managed_agents(
@@ -267,5 +338,80 @@ mod tests {
         assert_eq!(merged.len(), 2);
         assert!(merged.iter().any(|event| event.id == latest.id));
         assert!(merged.iter().any(|event| event.id == unrelated.id));
+    }
+
+    #[test]
+    fn owner_coordinate_tombstones_identify_only_exact_retired_agents() {
+        let owner = nostr::Keys::generate();
+        let other_owner = nostr::Keys::generate();
+        let retired = nostr::Keys::generate().public_key().to_hex();
+        let protected = nostr::Keys::generate().public_key().to_hex();
+        let malformed = nostr::EventBuilder::new(nostr::Kind::Custom(5), "")
+            .tags(vec![nostr::Tag::parse(["a", "not-a-coordinate"]).unwrap()])
+            .sign_with_keys(&owner)
+            .unwrap();
+        let foreign = crate::managed_agents::agent_events::build_agent_delete(
+            &protected,
+            &other_owner.public_key().to_hex(),
+        )
+        .unwrap()
+        .sign_with_keys(&other_owner)
+        .unwrap();
+        let retired_event = crate::managed_agents::agent_events::build_agent_delete(
+            &retired,
+            &owner.public_key().to_hex(),
+        )
+        .unwrap()
+        .sign_with_keys(&owner)
+        .unwrap();
+
+        let retired_pubkeys = retired_owner_managed_pubkeys(
+            &[malformed, foreign, retired_event],
+            &owner.public_key().to_hex(),
+        );
+
+        assert_eq!(retired_pubkeys, HashSet::from([retired]));
+        assert!(!retired_pubkeys.contains(&protected));
+    }
+
+    #[test]
+    fn retired_directory_profiles_stay_hidden_until_redeclared() {
+        let retired = nostr::Keys::generate();
+        let alice = nostr::Keys::generate();
+        let retired_event =
+            nostr::EventBuilder::new(nostr::Kind::Custom(10100), r#"{"name":"Old XENA"}"#)
+                .sign_with_keys(&retired)
+                .unwrap();
+        let alice_event =
+            nostr::EventBuilder::new(nostr::Kind::Custom(10100), r#"{"name":"Alice"}"#)
+                .sign_with_keys(&alice)
+                .unwrap();
+        let retired_pubkey = retired.public_key().to_hex();
+        let retired_pubkeys = HashSet::from([retired_pubkey.clone()]);
+
+        let without_redeclaration = active_directory_events(
+            vec![retired_event.clone(), alice_event.clone()],
+            &HashMap::new(),
+            &retired_pubkeys,
+        );
+        assert_eq!(without_redeclaration, vec![alice_event.clone()]);
+
+        let managed = ManagedAgentEventContent {
+            name: "XENA".to_string(),
+            persona_id: None,
+            system_prompt: None,
+            model: None,
+            provider: None,
+            persona_source_version: None,
+            parallelism: 1,
+            respond_to: crate::managed_agents::RespondTo::OwnerOnly,
+            respond_to_allowlist: vec![],
+        };
+        let after_redeclaration = active_directory_events(
+            vec![retired_event.clone(), alice_event.clone()],
+            &HashMap::from([(retired_pubkey, managed)]),
+            &retired_pubkeys,
+        );
+        assert_eq!(after_redeclaration, vec![retired_event, alice_event]);
     }
 }

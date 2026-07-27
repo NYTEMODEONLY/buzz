@@ -70,6 +70,9 @@ relay, Canary:
 - treats the owner's kind `30177` managed-agent declaration as sufficient to
   preserve the canonical card when that agent has no usable kind `10100`
   directory profile;
+- treats an exact owner-authored kind `30177` coordinate tombstone as a
+  retirement marker for that agent's durable kind `10100` profile, unless a
+  newer live declaration explicitly restores it;
 - waits for the trusted archive snapshot before rendering relay-directory
   cards and fails closed if that snapshot cannot be verified;
 - hides relay-archived identities even when their durable directory profiles
@@ -87,7 +90,9 @@ preserving the side-by-side security boundary.
 Names, built-in persona IDs, timestamps, and online status are not identity
 proof. If stale owner declarations survive an older install, resolve the exact
 pubkeys and lifecycle records before cleanup; never select a deletion target
-from the visible card label alone.
+from the visible card label alone. A successful stale-declaration cleanup must
+remove both the `Managed elsewhere` projection and the fallback `External`
+projection without deleting the agent-authored profile, key, or runtime.
 
 ## Sidebar organization data
 

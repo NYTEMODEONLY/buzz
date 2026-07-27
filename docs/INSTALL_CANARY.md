@@ -49,10 +49,15 @@ Expected side-by-side result:
 8. Relay-directory cards remain withheld until the trusted archive snapshot
    resolves. If it fails, Canary exposes neither stale cards nor local launch
    controls.
+9. An exact owner-authored kind `30177` coordinate tombstone suppresses the
+   retired agent's durable kind `10100` profile, so cleanup cannot leave the
+   same legacy identity behind as an `External` card. A later live declaration
+   restores it.
 
 If an older Canary already minted duplicates, compare all local and canonical
 pubkeys and their owner-authored lifecycle records first. A shared name,
 built-in persona, newer timestamp, or offline status is not sufficient proof.
 Delete/archive only the exact stale replacements, verify the canonical
 identities remain unarchived, then relaunch Canary and confirm the canonical
-cards read `Managed elsewhere`.
+cards read `Managed elsewhere`. Do not delete agent-authored profiles, keys, or
+runtimes merely to remove a stale directory projection.

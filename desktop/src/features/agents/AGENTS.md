@@ -132,7 +132,11 @@ without a parallel TypeScript runtime list.
    but that action must publish only the owner-authored NIP-09 coordinate
    deletion and must not archive the identity, alter channel membership, or
    touch a runtime/key. Locally managed agents stay on the full Delete agent
-   flow so their coupled resources cannot be orphaned.
+   flow so their coupled resources cannot be orphaned. Discovery must also
+   honor that exact owner-authored coordinate tombstone as a retirement marker
+   for the agent's durable kind `10100` profile; otherwise a successfully
+   removed legacy agent falls back to an `External` duplicate card. A newer
+   live kind `30177` declaration explicitly resurrects the profile.
    Relay-authoritative archived identities stay out of forward-looking agent
    discovery even while their durable directory profiles remain. The directory
    card's runtime label comes from kind `10100` `agent_type`.
