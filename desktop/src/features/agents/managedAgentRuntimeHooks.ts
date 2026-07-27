@@ -69,9 +69,9 @@ export function cacheReconciledManagedAgentRuntimes(
  * Called after an agent create: the create command spawns only the active
  * community's pair, and the startup reconcile won't run again until the next
  * launch or community switch, so without this kick a brand-new agent stays
- * deaf in every other community. Idempotent — live pairs are skipped and
- * missing manual-start agents spawn lazily (warm socket, no LLM until first
- * accepted event).
+ * deaf in every other community. Only active local auto-start agents are
+ * eligible; manual-start agents remain stopped until an explicit start path
+ * runs.
  */
 export function bootstrapManagedAgentRuntimePairs(
   queryClient: QueryClient,

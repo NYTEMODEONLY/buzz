@@ -99,7 +99,7 @@ test("classifyReconcileResult splits by Failed rows, matching on requested URL",
 });
 
 test("classifyReconcileResult treats a relay with no rows as reconciled", () => {
-  // A community with no eligible active local agents produces no rows; it must
+  // A community with no eligible auto-start agents produces no rows; it must
   // still count as reconciled so the hook stops retrying it.
   assert.deepEqual(
     classifyReconcileResult(["wss://a.example"], [], canonicalRelayUrl),

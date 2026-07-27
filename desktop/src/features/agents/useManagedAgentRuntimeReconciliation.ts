@@ -16,12 +16,12 @@ import type { ManagedAgentRuntimeStatus } from "@/shared/api/types";
 import { reconcileManagedAgentRuntimes } from "@/shared/api/tauriManagedAgents";
 
 /**
- * Bootstrap a harness pair for every active local agent in every configured
- * community, incrementally and with retry.
+ * Bootstrap a harness pair for every active local auto-start agent in every
+ * configured community, incrementally and with retry.
  *
- * Manual-start agents keep only the relay listener warm; their ACP/LLM pool
- * stays deferred until accepted work is queued. Auto-start agents initialize
- * the pool eagerly.
+ * Manual-start agents remain stopped until an explicit start path runs. This
+ * honors the persisted owner intent but means a stopped agent cannot receive
+ * an unsolicited @mention.
  *
  * Reconciliation is keyed by canonical relay URL: each configured relay is
  * reconciled once it appears (so adding a community mid-session spawns pairs
