@@ -535,6 +535,233 @@ test("persona-backed sibling exposes no controls when owner-managed relay list e
   ).toHaveCount(0);
 });
 
+type StopManagedAgentLogEntry = {
+  command: string;
+  payload: { pubkey?: string } | null;
+};
+
+async function readStopManagedAgentLog(
+  page: import("@playwright/test").Page,
+): Promise<StopManagedAgentLogEntry[]> {
+  return page.evaluate(() =>
+    (
+      (
+        window as Window & {
+          __BUZZ_E2E_COMMAND_LOG__?: StopManagedAgentLogEntry[];
+        }
+      ).__BUZZ_E2E_COMMAND_LOG__ ?? []
+    ).filter((entry) => entry.command === "stop_managed_agent"),
+  );
+}
+
+/**
+ * Bulk-stop must only target the identity-authorized runnable set.
+ * Active custom (personaId null) + active same-persona sibling: stop command
+ * must hit the custom pubkey and never the hidden noncanonical sibling.
+ */
+test("bulk stop running agents targets only authorized custom, never hidden sibling", async ({
+  page,
+}) => {
+  const canonicalZero =
+    "a01c81071e15dc14e52eae1e169f1c684a3e2b4d9c2b63f0599aee9444a917ba";
+  const siblingZero =
+    "44531d553d20a29e9aabf806faa2aca8ee4715dd487e1bf00ba76a433c41b5aa";
+  const customPubkey = "d".repeat(64);
+  const personaId = "builtin:fizz";
+
+  await installMockBridge(page, {
+    managedAgents: [
+      {
+        pubkey: siblingZero,
+        name: "ZERO",
+        personaId,
+        status: "running",
+      },
+      {
+        pubkey: customPubkey,
+        name: "Custom Helper",
+        personaId: null,
+        status: "running",
+      },
+    ],
+    activePersonaIds: [personaId],
+    relayAgents: [
+      {
+        pubkey: canonicalZero,
+        name: "ZERO",
+        ownerPubkey: TEST_IDENTITIES.tyler.pubkey,
+        isOwnerManaged: true,
+        ownerManagedPersonaId: personaId,
+        agentType: "codex",
+        channelNames: ["general"],
+        status: "online",
+      },
+    ],
+  });
+  await gotoApp(page);
+  await page.getByTestId("open-agents-view").click();
+
+  // Sibling is hidden; custom remains and exposes bulk stop for 1 agent.
+  await expect(page.getByTestId(`managed-agent-${siblingZero}`)).toHaveCount(0);
+  await expect(page.getByTestId(`managed-agent-${customPubkey}`)).toBeVisible();
+  await expect(page.getByTestId("bulk-stop-running-agents")).toBeVisible();
+
+  const dialogMessages: string[] = [];
+  page.on("dialog", (dialog) => {
+    dialogMessages.push(dialog.message());
+    void dialog.accept();
+  });
+
+  await page.getByTestId("bulk-stop-running-agents").click();
+  await expect
+    .poll(async () => (await readStopManagedAgentLog(page)).length)
+    .toBe(1);
+
+  expect(dialogMessages).toEqual(["Stop 1 agent?"]);
+  const stopCalls = await readStopManagedAgentLog(page);
+  expect(stopCalls.map((entry) => entry.payload?.pubkey)).toEqual([
+    customPubkey,
+  ]);
+  expect(stopCalls.some((entry) => entry.payload?.pubkey === siblingZero)).toBe(
+    false,
+  );
+});
+
+test("bulk stop during delayed owner-managed relay never targets hidden sibling", async ({
+  page,
+}) => {
+  // Pending relay: custom stays runnable/active so bulk stop is reachable;
+  // persona-backed sibling stays non-runnable and must not be stopped.
+  const canonicalZero =
+    "a01c81071e15dc14e52eae1e169f1c684a3e2b4d9c2b63f0599aee9444a917ba";
+  const siblingZero =
+    "44531d553d20a29e9aabf806faa2aca8ee4715dd487e1bf00ba76a433c41b5aa";
+  const customPubkey = "d".repeat(64);
+  const personaId = "builtin:fizz";
+  const relayDelayMs = 3_000;
+
+  await installMockBridge(page, {
+    managedAgents: [
+      {
+        pubkey: siblingZero,
+        name: "ZERO",
+        personaId,
+        status: "running",
+      },
+      {
+        pubkey: customPubkey,
+        name: "Custom Helper",
+        personaId: null,
+        status: "running",
+      },
+    ],
+    activePersonaIds: [personaId],
+    relayAgents: [
+      {
+        pubkey: canonicalZero,
+        name: "ZERO",
+        ownerPubkey: TEST_IDENTITIES.tyler.pubkey,
+        isOwnerManaged: true,
+        ownerManagedPersonaId: personaId,
+        agentType: "codex",
+        channelNames: ["general"],
+        status: "online",
+      },
+    ],
+    relayAgentsDelayMs: relayDelayMs,
+  });
+  await gotoApp(page);
+  await page.getByTestId("open-agents-view").click();
+
+  // Still pending: custom bulk-stop reachable; sibling never shown.
+  await expect(page.getByTestId(`managed-agent-${customPubkey}`)).toBeVisible();
+  await expect(page.getByTestId("bulk-stop-running-agents")).toBeVisible();
+  await expect(page.getByTestId(`managed-agent-${siblingZero}`)).toHaveCount(0);
+  await expect(
+    page.getByTestId(`external-agent-card-${canonicalZero}`),
+  ).toHaveCount(0);
+
+  page.on("dialog", (dialog) => {
+    void dialog.accept();
+  });
+  await page.getByTestId("bulk-stop-running-agents").click();
+  await expect
+    .poll(async () => (await readStopManagedAgentLog(page)).length)
+    .toBe(1);
+
+  const stopCalls = await readStopManagedAgentLog(page);
+  expect(stopCalls.map((entry) => entry.payload?.pubkey)).toEqual([
+    customPubkey,
+  ]);
+  expect(stopCalls.some((entry) => entry.payload?.pubkey === siblingZero)).toBe(
+    false,
+  );
+});
+
+test("bulk stop after settled relay-error never targets hidden sibling", async ({
+  page,
+}) => {
+  const siblingZero =
+    "44531d553d20a29e9aabf806faa2aca8ee4715dd487e1bf00ba76a433c41b5aa";
+  const customPubkey = "d".repeat(64);
+  const personaId = "builtin:fizz";
+
+  await installMockBridge(page, {
+    managedAgents: [
+      {
+        pubkey: siblingZero,
+        name: "ZERO",
+        personaId,
+        status: "running",
+      },
+      {
+        pubkey: customPubkey,
+        name: "Custom Helper",
+        personaId: null,
+        status: "running",
+      },
+    ],
+    activePersonaIds: [personaId],
+    relayAgents: [
+      {
+        pubkey:
+          "a01c81071e15dc14e52eae1e169f1c684a3e2b4d9c2b63f0599aee9444a917ba",
+        name: "ZERO",
+        ownerPubkey: TEST_IDENTITIES.tyler.pubkey,
+        isOwnerManaged: true,
+        ownerManagedPersonaId: personaId,
+        agentType: "codex",
+        channelNames: ["general"],
+        status: "online",
+      },
+    ],
+    relayAgentsError: "relay owner-managed declarations unavailable",
+  });
+  await gotoApp(page);
+  await page.getByTestId("open-agents-view").click();
+
+  await expect(page.getByTestId("relay-directory-error")).toBeVisible();
+  await expect(page.getByTestId(`managed-agent-${customPubkey}`)).toBeVisible();
+  await expect(page.getByTestId("bulk-stop-running-agents")).toBeVisible();
+  await expect(page.getByTestId(`managed-agent-${siblingZero}`)).toHaveCount(0);
+
+  page.on("dialog", (dialog) => {
+    void dialog.accept();
+  });
+  await page.getByTestId("bulk-stop-running-agents").click();
+  await expect
+    .poll(async () => (await readStopManagedAgentLog(page)).length)
+    .toBe(1);
+
+  const stopCalls = await readStopManagedAgentLog(page);
+  expect(stopCalls.map((entry) => entry.payload?.pubkey)).toEqual([
+    customPubkey,
+  ]);
+  expect(stopCalls.some((entry) => entry.payload?.pubkey === siblingZero)).toBe(
+    false,
+  );
+});
+
 test("owner can remove a relay-only stale managed-agent declaration without archiving it", async ({
   page,
 }) => {

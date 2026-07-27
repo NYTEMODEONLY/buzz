@@ -152,9 +152,12 @@ export function AgentsView() {
                 </Button>
                 {runningAgentCount > 0 ? (
                   <Button
+                    data-testid="bulk-stop-running-agents"
                     disabled={isActionPending}
                     onClick={() => {
-                      void agents.handleBulkStopRunning();
+                      // Only the identity-filtered runnable set — never the full
+                      // managedAgents list, which still contains hidden siblings.
+                      void agents.handleBulkStopRunning(runnableManagedAgents);
                     }}
                     size="sm"
                     variant="outline"

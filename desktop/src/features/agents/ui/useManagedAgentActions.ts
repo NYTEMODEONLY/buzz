@@ -368,9 +368,16 @@ export function useManagedAgentActions() {
     return true;
   }
 
-  async function handleBulkStopRunning() {
+  /**
+   * Stop only agents the caller already authorized for control (typically
+   * `runnableLocalManagedAgents` output). Mandatory — rebuilding targets from
+   * the full `managedAgents` list would stop hidden noncanonical siblings.
+   */
+  async function handleBulkStopRunning(
+    authorizedAgents: readonly ManagedAgent[],
+  ) {
     await runBulkAction(
-      managedAgents.filter((a) => isManagedAgentActive(a)),
+      authorizedAgents.filter((a) => isManagedAgentActive(a)),
       "Stop",
       "stop",
       (a) =>
