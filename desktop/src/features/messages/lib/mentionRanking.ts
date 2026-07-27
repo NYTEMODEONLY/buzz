@@ -1,4 +1,5 @@
 import { normalizePubkey, truncatePubkey } from "@/shared/lib/pubkey";
+import { safeNpub } from "@/shared/lib/nostrUtils";
 
 export type MentionCandidateForRanking = {
   displayName: string | null;
@@ -84,11 +85,18 @@ export function rankMentionCandidates<T extends MentionCandidateForRanking>(
         labelScores.length > 0 ? Math.min(...labelScores) : null;
 
       const pubkeyScore = candidate.pubkey
-        ? pubkeyLower.startsWith(lowerQuery)
-          ? 4
-          : pubkeyLower.includes(lowerQuery)
-            ? 5
-            : null
+        ? [pubkeyLower, safeNpub(candidate.pubkey)?.toLowerCase() ?? ""].reduce<
+            number | null
+          >((best, identity) => {
+            if (!identity) return best;
+            const next = identity.startsWith(lowerQuery)
+              ? 4
+              : identity.includes(lowerQuery)
+                ? 5
+                : null;
+            if (next === null) return best;
+            return best === null ? next : Math.min(best, next);
+          }, null)
         : null;
       const score = labelScore !== null ? labelScore : pubkeyScore;
 

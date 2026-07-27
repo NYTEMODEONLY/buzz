@@ -225,10 +225,12 @@ export function coalesceAgentAutocompleteCandidates<
 >(
   candidates: readonly T[],
   {
+    authoritativePubkeys = new Set(),
     currentPubkey,
     getLabel,
     preferredPubkeys = new Set(),
   }: {
+    authoritativePubkeys?: ReadonlySet<string>;
     currentPubkey?: string | null;
     getLabel: (candidate: T) => string | null | undefined;
     preferredPubkeys?: ReadonlySet<string>;
@@ -251,10 +253,44 @@ export function coalesceAgentAutocompleteCandidates<
       continue;
     }
 
+    const current = output[currentIndex];
+    const candidatePubkey = candidate.pubkey
+      ? normalizePubkey(candidate.pubkey)
+      : null;
+    const currentCandidatePubkey = current.pubkey
+      ? normalizePubkey(current.pubkey)
+      : null;
+    const candidateIsAuthoritative =
+      candidatePubkey !== null && authoritativePubkeys.has(candidatePubkey);
+    const currentIsAuthoritative =
+      currentCandidatePubkey !== null &&
+      authoritativePubkeys.has(currentCandidatePubkey);
+
+    if (
+      candidateIsAuthoritative &&
+      currentIsAuthoritative &&
+      candidatePubkey !== currentCandidatePubkey
+    ) {
+      // Conflicting owner-managed declarations are not safely coalescible.
+      // Keep every exact pubkey selectable and let the picker label the keys.
+      output.push(candidate);
+      continue;
+    }
+
+    // Relay owner-managed declarations are the canonical identity boundary.
+    // They must beat a local same-persona/name sibling even when that sibling
+    // is already in the channel or appears in a preferred local source.
+    if (candidateIsAuthoritative !== currentIsAuthoritative) {
+      if (candidateIsAuthoritative) {
+        output[currentIndex] = candidate;
+      }
+      continue;
+    }
+
     if (
       isPreferredAgentCandidate(
         candidate,
-        output[currentIndex],
+        current,
         currentPubkey,
         preferredPubkeys,
       )

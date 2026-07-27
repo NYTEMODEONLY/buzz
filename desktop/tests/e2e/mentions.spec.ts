@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { npubEncode } from "nostr-tools/nip19";
 
 import {
   installMockBridge,
@@ -30,6 +31,10 @@ const PROFILE_ONLY_AGENT_PUBKEY =
   "8f83d6b7f3d74f7d933ae3a54dd8c6cc85c7f98e531c16e5a827b953441a8d67";
 const OWNED_AGENT_PROFILE_PUBKEY =
   "1212121212121212121212121212121212121212121212121212121212121212";
+const LOCAL_SAME_PERSONA_AGENT_PUBKEY =
+  "1313131313131313131313131313131313131313131313131313131313131313";
+const OWNER_MANAGED_CANONICAL_AGENT_PUBKEY =
+  "1414141414141414141414141414141414141414141414141414141414141414";
 const SYSTEM_MESSAGE_KIND = 40099;
 const DM_THREAD_AGENT_MENTION_ERROR_TEXT =
   "Agents must already be in a DM to be mentioned in its threads. Start a new conversation that includes the agent.";
@@ -827,6 +832,132 @@ test("managed relay agents are visible in channel mentions regardless of relay p
   const dropdown = autocomplete(page);
   await expect(dropdown.getByText("quinn")).toBeVisible();
   await expect(dropdown.getByText("agent")).toBeVisible();
+});
+
+test("owner-managed relay identity replaces a local same-persona sibling and exposes its exact key", async ({
+  page,
+}) => {
+  const personaId = "builtin:xena";
+  await installMockBridge(page, {
+    managedAgents: [
+      {
+        pubkey: LOCAL_SAME_PERSONA_AGENT_PUBKEY,
+        name: "XENA",
+        personaId,
+        status: "running",
+        channelNames: ["general"],
+      },
+    ],
+    relayAgents: [
+      {
+        pubkey: OWNER_MANAGED_CANONICAL_AGENT_PUBKEY,
+        name: "XENA",
+        ownerPubkey: MOCK_VIEWER_PUBKEY,
+        isOwnerManaged: true,
+        ownerManagedPersonaId: personaId,
+        respondTo: "owner-only",
+      },
+    ],
+  });
+  await page.goto("/");
+  await page.getByTestId("channel-general").click();
+  await expect(page.getByTestId("chat-title")).toHaveText("general");
+
+  const input = page.getByTestId("message-input");
+  await input.fill("@xena");
+
+  const dropdown = autocomplete(page);
+  const canonicalSuggestion = dropdown.getByTestId(
+    `mention-suggestion-${OWNER_MANAGED_CANONICAL_AGENT_PUBKEY}`,
+  );
+  await expect(canonicalSuggestion).toBeVisible();
+  await expect(
+    dropdown.getByTestId(
+      `mention-suggestion-${LOCAL_SAME_PERSONA_AGENT_PUBKEY}`,
+    ),
+  ).toHaveCount(0);
+  await expect(
+    canonicalSuggestion.getByTestId("mention-exact-identity-npub"),
+  ).toHaveAttribute("title", /^npub1/);
+
+  await canonicalSuggestion.click();
+  await expect(input).toHaveText("@XENA ");
+  await expect(input.locator(".agent-mention-highlight")).toHaveText("XENA");
+});
+
+test("conflicting owner-managed same-persona identities remain pubkey-labeled and exact-searchable", async ({
+  page,
+}) => {
+  const personaId = "builtin:xena";
+  await installMockBridge(page, {
+    managedAgents: [
+      {
+        pubkey: LOCAL_SAME_PERSONA_AGENT_PUBKEY,
+        name: "XENA",
+        personaId,
+        status: "running",
+        channelNames: ["general"],
+      },
+    ],
+    relayAgents: [
+      {
+        pubkey: LOCAL_SAME_PERSONA_AGENT_PUBKEY,
+        name: "XENA",
+        ownerPubkey: MOCK_VIEWER_PUBKEY,
+        isOwnerManaged: true,
+        ownerManagedPersonaId: personaId,
+        respondTo: "owner-only",
+      },
+      {
+        pubkey: OWNER_MANAGED_CANONICAL_AGENT_PUBKEY,
+        name: "XENA",
+        ownerPubkey: MOCK_VIEWER_PUBKEY,
+        isOwnerManaged: true,
+        ownerManagedPersonaId: personaId,
+        respondTo: "owner-only",
+      },
+    ],
+  });
+  await page.goto("/");
+  await page.getByTestId("channel-general").click();
+  await expect(page.getByTestId("chat-title")).toHaveText("general");
+
+  const input = page.getByTestId("message-input");
+  const dropdown = autocomplete(page);
+  const localSuggestion = dropdown.getByTestId(
+    `mention-suggestion-${LOCAL_SAME_PERSONA_AGENT_PUBKEY}`,
+  );
+  const canonicalSuggestion = dropdown.getByTestId(
+    `mention-suggestion-${OWNER_MANAGED_CANONICAL_AGENT_PUBKEY}`,
+  );
+
+  await input.fill("@xena");
+  await expect(localSuggestion).toBeVisible();
+  await expect(canonicalSuggestion).toBeVisible();
+  await expect(
+    localSuggestion.getByTestId("mention-collision-npub"),
+  ).toHaveAttribute("title", npubEncode(LOCAL_SAME_PERSONA_AGENT_PUBKEY));
+  await expect(
+    canonicalSuggestion.getByTestId("mention-collision-npub"),
+  ).toHaveAttribute("title", npubEncode(OWNER_MANAGED_CANONICAL_AGENT_PUBKEY));
+
+  await input.fill("Plain typed @XENA");
+  await input.press("Escape");
+  await page.getByTestId("send-message").click();
+  const plainTypedMessage = page.getByTestId("message-row").last();
+  await expect(plainTypedMessage).toContainText("Plain typed @XENA");
+  await expect(plainTypedMessage.locator("[data-mention]")).toHaveCount(0);
+
+  await input.fill(`@${OWNER_MANAGED_CANONICAL_AGENT_PUBKEY.slice(0, 12)}`);
+  await expect(canonicalSuggestion).toBeVisible();
+  await expect(localSuggestion).toHaveCount(0);
+
+  const canonicalNpub = npubEncode(OWNER_MANAGED_CANONICAL_AGENT_PUBKEY);
+  await input.fill(`@${canonicalNpub.slice(0, 16)}`);
+  await expect(canonicalSuggestion).toBeVisible();
+  await expect(localSuggestion).toHaveCount(0);
+  await canonicalSuggestion.click();
+  await expect(input.locator(".agent-mention-highlight")).toHaveText("XENA");
 });
 
 test("relay-only agents are visible in channel mentions when allowlisted", async ({

@@ -13,6 +13,7 @@ export type MentionSuggestionCandidate = {
   teamMembers?: TeamMentionMember[];
   avatarUrl?: string | null;
   isAgent: boolean;
+  isOwnerManagedAgent?: boolean;
   isMember: boolean;
   role?: ChannelRole | null;
   ownerPubkey?: string | null;
@@ -52,6 +53,7 @@ export function mapMentionCandidateToSuggestion(opts: {
         : null) ??
       null,
     isAgent: candidate.isAgent,
+    isOwnerManagedAgent: candidate.isOwnerManagedAgent,
     notInChannel:
       candidate.kind !== "team" &&
       channelType !== "dm" &&

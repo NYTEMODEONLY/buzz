@@ -299,6 +299,73 @@ test("coalesceAgentAutocompleteCandidates: merges agents with the same persona i
   assert.deepEqual(coalesce([first, second]), [second]);
 });
 
+test("coalesceAgentAutocompleteCandidates: owner-managed relay identity wins over a local same-persona sibling", () => {
+  const localSibling = makeAgent({
+    pubkey: PUB_A,
+    personaId: "xena",
+    isManagedAgent: true,
+    isMember: true,
+    ownerPubkey: CURRENT_PUBKEY,
+  });
+  const canonical = makeAgent({
+    pubkey: PUB_B,
+    personaId: "xena",
+    ownerPubkey: CURRENT_PUBKEY,
+  });
+
+  assert.deepEqual(
+    coalesce([localSibling, canonical], {
+      authoritativePubkeys: new Set([PUB_B]),
+      preferredPubkeys: new Set([PUB_A]),
+    }),
+    [canonical],
+  );
+});
+
+test("coalesceAgentAutocompleteCandidates: owner-managed relay identity wins regardless of source order", () => {
+  const canonical = makeAgent({
+    pubkey: PUB_B,
+    ownerPubkey: CURRENT_PUBKEY,
+  });
+  const localSibling = makeAgent({
+    pubkey: PUB_A,
+    ownerPubkey: CURRENT_PUBKEY,
+    isManagedAgent: true,
+    isMember: true,
+  });
+
+  assert.deepEqual(
+    coalesce([canonical, localSibling], {
+      authoritativePubkeys: new Set([PUB_B]),
+      preferredPubkeys: new Set([PUB_A]),
+    }),
+    [canonical],
+  );
+});
+
+test("coalesceAgentAutocompleteCandidates: conflicting owner-managed pubkeys remain exact selectable identities", () => {
+  const firstDeclaration = makeAgent({
+    pubkey: PUB_A,
+    personaId: "xena",
+    isManagedAgent: true,
+    isMember: true,
+    ownerPubkey: CURRENT_PUBKEY,
+  });
+  const secondDeclaration = makeAgent({
+    pubkey: PUB_B,
+    personaId: "xena",
+    ownerPubkey: CURRENT_PUBKEY,
+  });
+
+  assert.deepEqual(
+    coalesce([firstDeclaration, secondDeclaration], {
+      authoritativePubkeys: new Set([PUB_A, PUB_B]),
+      preferredPubkeys: new Set([PUB_A]),
+    }),
+    [firstDeclaration, secondDeclaration],
+  );
+});
+
 test("coalesceAgentAutocompleteCandidates: merges agents with the same owner and name", () => {
   const first = makeAgent({ pubkey: PUB_A, ownerPubkey: OWNER_PUBKEY });
   const second = makeAgent({

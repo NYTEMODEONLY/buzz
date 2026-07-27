@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { npubEncode } from "nostr-tools/nip19";
 
 import { rankMentionCandidates } from "./mentionRanking.ts";
 
@@ -96,6 +97,28 @@ test("rankMentionCandidates: matching secondary labels participate in ranking", 
     CHANNEL_BRAIN_PUBKEY,
     OTHER_BRAIN_PUBKEY,
   ]);
+});
+
+test("rankMentionCandidates: exact identities are searchable by hex and npub", () => {
+  const first = candidate({
+    displayName: "XENA",
+    isAgent: true,
+    pubkey: CHANNEL_BRAIN_PUBKEY,
+  });
+  const second = candidate({
+    displayName: "XENA",
+    isAgent: true,
+    pubkey: OTHER_BRAIN_PUBKEY,
+  });
+
+  assert.deepEqual(
+    rankedPubkeys([first, second], CHANNEL_BRAIN_PUBKEY.slice(0, 12)),
+    [CHANNEL_BRAIN_PUBKEY],
+  );
+  assert.deepEqual(
+    rankedPubkeys([first, second], npubEncode(OTHER_BRAIN_PUBKEY).slice(0, 16)),
+    [OTHER_BRAIN_PUBKEY],
+  );
 });
 
 test("rankMentionCandidates: active persona-backed non-members outrank other non-member agents", () => {

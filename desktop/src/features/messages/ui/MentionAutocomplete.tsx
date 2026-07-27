@@ -22,6 +22,7 @@ export type MentionSuggestion = {
   displayName: string;
   avatarUrl?: string | null;
   isAgent?: boolean;
+  isOwnerManagedAgent?: boolean;
   notInChannel?: boolean;
   ownerLabel?: string | null;
   role?: string | null;
@@ -103,8 +104,9 @@ export const MentionAutocomplete = React.memo(function MentionAutocomplete({
           const agentLabel = "agent";
           const hasNameCollision =
             (nameCounts.get(suggestion.displayName.toLowerCase()) ?? 0) > 1;
-          const collisionNpub =
-            hasNameCollision && suggestion.pubkey
+          const exactIdentityNpub =
+            (hasNameCollision || suggestion.isOwnerManagedAgent) &&
+            suggestion.pubkey
               ? safeNpub(suggestion.pubkey)
               : null;
 
@@ -199,7 +201,7 @@ export const MentionAutocomplete = React.memo(function MentionAutocomplete({
                     ) : null}
                   </span>
                 ) : null}
-                {collisionNpub ? (
+                {exactIdentityNpub ? (
                   <span
                     className={cn(
                       "min-w-0 truncate font-mono text-2xs leading-snug",
@@ -207,10 +209,14 @@ export const MentionAutocomplete = React.memo(function MentionAutocomplete({
                         ? "text-accent-foreground/60"
                         : "text-muted-foreground",
                     )}
-                    data-testid="mention-collision-npub"
-                    title={collisionNpub}
+                    data-testid={
+                      hasNameCollision
+                        ? "mention-collision-npub"
+                        : "mention-exact-identity-npub"
+                    }
+                    title={exactIdentityNpub}
                   >
-                    {truncatePubkey(collisionNpub)}
+                    {truncatePubkey(exactIdentityNpub)}
                   </span>
                 ) : null}
               </span>

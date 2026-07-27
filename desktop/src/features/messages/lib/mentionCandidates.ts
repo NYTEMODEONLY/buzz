@@ -24,6 +24,7 @@ export type MentionCandidate = {
   ownerPubkey?: string | null;
   isAgent: boolean;
   isManagedAgent?: boolean;
+  isOwnerManagedAgent?: boolean;
   isGlobalSearchResult?: boolean;
 };
 
