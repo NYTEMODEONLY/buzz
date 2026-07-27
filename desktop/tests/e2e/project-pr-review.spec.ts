@@ -923,9 +923,9 @@ test("project without a checkout offers fetch feedback and dropdown cloning", as
   await expect(
     page.getByRole("button", { name: "Remote", exact: true }),
   ).toHaveClass(/\bborder-input\/40\b/);
-  await expect(page.getByRole("button", { name: /main/ })).toHaveClass(
-    /\bborder-input\/40\b/,
-  );
+  await expect(
+    page.getByRole("button", { name: "main", exact: true }),
+  ).toHaveClass(/\bborder-input\/40\b/);
   await expect(
     page.getByRole("button", { name: "Clone", exact: true }),
   ).toHaveCount(0);
@@ -963,7 +963,7 @@ test("project branches can be created from the selected remote branch", async ({
   });
   await openBuzzProject(page);
 
-  await page.getByRole("button", { name: /main/ }).click();
+  await page.getByRole("button", { name: "main", exact: true }).click();
   await page.getByTestId("project-create-branch").click();
   await page
     .getByTestId("project-create-branch-name")
@@ -985,7 +985,7 @@ test("project branches can be created from the selected remote branch", async ({
     page.getByRole("menuitemradio", { name: "feature/branch-management" }),
   ).toBeVisible();
   await page.getByRole("menuitemradio", { name: "main" }).click();
-  await page.getByRole("button", { name: /main/ }).click();
+  await page.getByRole("button", { name: "main", exact: true }).click();
   await expect(
     page.getByRole("menuitemradio", { name: "feature/branch-management" }),
   ).toBeVisible();
@@ -995,7 +995,7 @@ test("project branches can be created from the selected remote branch", async ({
   expect(commands).toContain("create_project_remote_branch");
 
   await openBuzzProject(page);
-  await page.getByRole("button", { name: /main/ }).click();
+  await page.getByRole("button", { name: "main", exact: true }).click();
   await expect(
     page.getByRole("menuitemradio", { name: "feature/branch-management" }),
   ).toBeVisible();
@@ -1008,7 +1008,7 @@ test("repository tags can be browsed as immutable remote snapshots", async ({
   await installMockBridge(page);
   await openBuzzProject(page);
 
-  await page.getByRole("button", { name: /main/ }).click();
+  await page.getByRole("button", { name: "main", exact: true }).click();
   await expect(page.getByText("Tags", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("menuitemradio", { name: /v1\.0\.0.*0123456/ }),
@@ -1034,7 +1034,7 @@ test("repository tags can be browsed as immutable remote snapshots", async ({
   await expect(page.getByTestId("project-delete-branch")).toHaveCount(0);
 
   await page.getByRole("menuitemradio", { name: "main" }).click();
-  await page.getByRole("button", { name: /main/ }).click();
+  await page.getByRole("button", { name: "main", exact: true }).click();
   await expect(page.getByTestId("project-create-branch")).toBeVisible();
 });
 
@@ -1045,7 +1045,7 @@ test("project branches can be deleted but the default branch cannot", async ({
   await installMockBridge(page);
   await openBuzzProject(page);
 
-  await page.getByRole("button", { name: /main/ }).click();
+  await page.getByRole("button", { name: "main", exact: true }).click();
   await expect(page.getByTestId("project-delete-branch")).toBeDisabled();
   await page.getByTestId("project-create-branch").click();
   await page
@@ -1063,7 +1063,9 @@ test("project branches can be deleted but the default branch cannot", async ({
   await expect(
     page.getByText("Deleted branch feature/delete-me.", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: /main/ })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "main", exact: true }),
+  ).toBeVisible();
   const commands = await page.evaluate(
     () => window.__BUZZ_E2E_COMMANDS__ ?? [],
   );
@@ -1098,7 +1100,7 @@ test("pushed local branch can open a pull request", async ({ page }) => {
   await installMockBridge(page);
   await openBuzzProject(page);
 
-  await page.getByRole("button", { name: /main/ }).click();
+  await page.getByRole("button", { name: "main", exact: true }).click();
   await expect(
     page.getByRole("menuitemradio", { name: "space" }),
   ).toBeVisible();

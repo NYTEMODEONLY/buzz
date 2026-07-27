@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import type { ChannelTemplate } from "../../src/shared/api/types";
 import { FEATURE_OVERRIDES_STORAGE_KEY, PREVIEW_FEATURE_IDS } from "./features";
 
@@ -928,4 +928,11 @@ export async function openNewMessagePage(page: Page) {
   await openSectionMenu(page, "section-actions-dms");
   await page.getByRole("menuitem", { name: "New message" }).click();
   await page.getByTestId("new-message-page").waitFor({ state: "visible" });
+  // The section menu restores focus to its trigger while closing. Reassert
+  // the compose screen's intended initial focus after that cleanup so the
+  // recipient popover stays open and directory rows remain actionable.
+  await expect(page.getByTestId("section-actions-dms")).toBeFocused();
+  const search = page.getByTestId("new-dm-search");
+  await search.focus();
+  await expect(search).toBeFocused();
 }

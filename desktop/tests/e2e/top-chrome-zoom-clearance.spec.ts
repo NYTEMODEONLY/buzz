@@ -25,6 +25,8 @@ const EXPECTED_NAV_CENTER_Y = 23;
 // zoom. The top-chrome nav row must clear that band in fixed px, so the
 // clearance cannot shrink when the root font size scales down.
 const TRAFFIC_LIGHT_RIGHT_EDGE = 72;
+const TOP_CHROME_NAV_SELECTOR =
+  'button[data-sidebar="trigger"], [data-testid="global-back"], [data-testid="global-forward"]';
 
 async function spoofMacPlatform(page: import("@playwright/test").Page) {
   await page.addInitScript(() => {
@@ -33,7 +35,10 @@ async function spoofMacPlatform(page: import("@playwright/test").Page) {
 }
 
 async function firstNavButtonX(page: import("@playwright/test").Page) {
-  const toggle = page.locator('[data-testid="app-top-chrome"] button').first();
+  const toggle = page.getByRole("button", {
+    name: "Toggle Sidebar",
+    exact: true,
+  });
   await expect(toggle).toBeVisible();
   const box = await toggle.boundingBox();
   expect(box).not.toBeNull();
@@ -65,7 +70,9 @@ async function expectTopChromeFixedHeight(
 async function expectNavButtonsFixedSize(
   page: import("@playwright/test").Page,
 ) {
-  const buttons = page.locator('[data-testid="app-top-chrome"] button');
+  const buttons = page
+    .getByTestId("app-top-chrome")
+    .locator(TOP_CHROME_NAV_SELECTOR);
   const count = await buttons.count();
   expect(count).toBeGreaterThan(0);
   for (let i = 0; i < count; i += 1) {
