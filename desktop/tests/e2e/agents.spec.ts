@@ -316,6 +316,69 @@ test("agents managed by another Buzz installation keep their canonical identity"
   }
 });
 
+test("canonical owner-managed ZERO stays Managed elsewhere over a same-name local sibling", async ({
+  page,
+}) => {
+  // Mirrors the Main/Canary split: local store holds a non-canonical sibling
+  // while the relay declares the canonical owner-managed pubkey.
+  const canonicalZero =
+    "a01c81071e15dc14e52eae1e169f1c684a3e2b4d9c2b63f0599aee9444a917ba";
+  const siblingZero =
+    "44531d553d20a29e9aabf806faa2aca8ee4715dd487e1bf00ba76a433c41b5aa";
+  const personaId = "builtin:fizz";
+
+  await installMockBridge(page, {
+    managedAgents: [
+      {
+        pubkey: siblingZero,
+        name: "ZERO",
+        personaId,
+        status: "stopped",
+      },
+    ],
+    // Activate the persona so a sibling would otherwise get a Start path.
+    activePersonaIds: [personaId],
+    relayAgents: [
+      {
+        pubkey: canonicalZero,
+        name: "ZERO",
+        ownerPubkey: TEST_IDENTITIES.tyler.pubkey,
+        isOwnerManaged: true,
+        ownerManagedPersonaId: personaId,
+        agentType: "codex",
+        channelNames: ["general"],
+        status: "online",
+      },
+    ],
+  });
+  await gotoApp(page);
+  await page.getByTestId("open-agents-view").click();
+
+  const canonicalCard = page.getByTestId(
+    `external-agent-card-${canonicalZero}`,
+  );
+  await expect(canonicalCard).toBeVisible();
+  await expect(canonicalCard).toContainText("ZERO");
+  await expect(canonicalCard).toContainText("Managed elsewhere");
+  await expect(
+    canonicalCard.getByTestId(`agent-runtime-start-${canonicalZero}`),
+  ).toHaveCount(0);
+
+  // Sibling must not expose Start or appear as a second ZERO identity card.
+  await expect(
+    page.getByTestId(`agent-runtime-start-${siblingZero}`),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId(`external-agent-card-${siblingZero}`),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId(`persona-runtime-start-${personaId}`),
+  ).toHaveCount(0);
+  await expect(page.getByTestId(`persona-agent-row-${personaId}`)).toHaveCount(
+    0,
+  );
+});
+
 test("owner can remove a relay-only stale managed-agent declaration without archiving it", async ({
   page,
 }) => {

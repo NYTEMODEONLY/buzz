@@ -6,6 +6,7 @@ import {
   formatExternalAgentType,
   ownerManagedRelayAgents,
   ownerManagedPersonaIds,
+  runnableLocalManagedAgents,
 } from "./externalAgentDirectory.ts";
 
 const relayAgent = (overrides) => ({
@@ -22,6 +23,12 @@ const relayAgent = (overrides) => ({
   status: "online",
   respondTo: "owner-only",
   respondToAllowlist: [],
+  ...overrides,
+});
+
+const managedAgent = (overrides) => ({
+  pubkey: "c".repeat(64),
+  personaId: null,
   ...overrides,
 });
 
@@ -83,9 +90,24 @@ test("shows owner-managed agents from another isolated installation", () => {
     ownerManagedRelayAgents(
       [muse, localXena, alice],
       new Set([localXena.pubkey]),
-      new Set(["XENA"]),
     ),
     [muse],
+  );
+});
+
+test("keeps owner-managed canonical visible when a same-name local sibling exists", () => {
+  const canonicalZero = relayAgent({
+    pubkey: "a01c81071e15dc14e52eae1e169f1c684a3e2b4d9c2b63f0599aee9444a917ba",
+    name: "ZERO",
+    isOwnerManaged: true,
+    ownerManagedPersonaId: "persona:zero-coding",
+  });
+  const siblingPubkey =
+    "44531d553d20a29e9aabf806faa2aca8ee4715dd487e1bf00ba76a433c41b5aa";
+
+  assert.deepEqual(
+    ownerManagedRelayAgents([canonicalZero], new Set([siblingPubkey])),
+    [canonicalZero],
   );
 });
 
@@ -124,6 +146,49 @@ test("owner-managed persona ids suppress replacement launch controls", () => {
   assert.deepEqual(
     ownerManagedPersonaIds([muse, alice]),
     new Set(["builtin:fizz"]),
+  );
+});
+
+test("runnableLocalManagedAgents drops noncanonical same-persona siblings", () => {
+  const canonicalPubkey =
+    "a01c81071e15dc14e52eae1e169f1c684a3e2b4d9c2b63f0599aee9444a917ba";
+  const siblingPubkey =
+    "44531d553d20a29e9aabf806faa2aca8ee4715dd487e1bf00ba76a433c41b5aa";
+  const personaId = "persona:zero-coding";
+  const relay = [
+    relayAgent({
+      pubkey: canonicalPubkey,
+      name: "ZERO",
+      isOwnerManaged: true,
+      ownerManagedPersonaId: personaId,
+    }),
+  ];
+  const sibling = managedAgent({
+    pubkey: siblingPubkey,
+    personaId,
+  });
+  const custom = managedAgent({
+    pubkey: "d".repeat(64),
+    personaId: null,
+  });
+  const hostOfCanonical = managedAgent({
+    pubkey: canonicalPubkey,
+    personaId,
+  });
+  const unrelatedPersona = managedAgent({
+    pubkey: "e".repeat(64),
+    personaId: "persona:other",
+  });
+
+  assert.deepEqual(runnableLocalManagedAgents([sibling, custom], relay), [
+    custom,
+  ]);
+  assert.deepEqual(
+    runnableLocalManagedAgents(
+      [hostOfCanonical, sibling, unrelatedPersona],
+      relay,
+    ),
+    [hostOfCanonical, unrelatedPersona],
   );
 });
 

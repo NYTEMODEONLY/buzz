@@ -28,7 +28,10 @@ import { useTeamActions } from "./useTeamActions";
 import { useProfilePanel } from "@/shared/context/ProfilePanelContext";
 import { useBakedBuildEnvQuery } from "@/features/agents/hooks";
 import { isManagedAgentActive } from "@/features/agents/lib/managedAgentControlActions";
-import { ownerManagedPersonaIds } from "@/features/agents/lib/externalAgentDirectory";
+import {
+  ownerManagedPersonaIds,
+  runnableLocalManagedAgents,
+} from "@/features/agents/lib/externalAgentDirectory";
 import { useGlobalAgentConfig } from "@/features/agents/useGlobalAgentConfig";
 import { Button } from "@/shared/ui/button";
 import { PageHeader } from "@/shared/ui/PageHeader";
@@ -41,9 +44,16 @@ export function AgentsView() {
   const inheritedDefaults = getInheritedAgentDefaults(globalConfig, bakedEnv);
   const agents = useManagedAgentActions();
   const personas = usePersonaActions();
+  const relayAgents = agents.relayAgentsQuery.data ?? [];
   const remoteManagedPersonaIds = React.useMemo(
-    () => ownerManagedPersonaIds(agents.relayAgentsQuery.data ?? []),
-    [agents.relayAgentsQuery.data],
+    () => ownerManagedPersonaIds(relayAgents),
+    [relayAgents],
+  );
+  // Hide non-canonical local siblings of owner-managed relay identities so
+  // they cannot expose Start / edit / runtime controls beside Managed elsewhere.
+  const runnableManagedAgents = React.useMemo(
+    () => runnableLocalManagedAgents(agents.managedAgents, relayAgents),
+    [agents.managedAgents, relayAgents],
   );
   const launchableLibraryPersonas = React.useMemo(
     () =>
@@ -80,7 +90,7 @@ export function AgentsView() {
     teamActions.createTeamMutation.isPending ||
     teamActions.updateTeamMutation.isPending ||
     teamActions.deleteTeamMutation.isPending;
-  const runningAgentCount = agents.managedAgents.filter((agent) =>
+  const runningAgentCount = runnableManagedAgents.filter((agent) =>
     isManagedAgentActive(agent),
   ).length;
   // Show the resolved effective model, not just the structured `model` field:
@@ -157,7 +167,7 @@ export function AgentsView() {
               defaultModel={inheritedDefaults.model.value}
               actionErrorMessage={agents.actionErrorMessage}
               actionNoticeMessage={agents.actionNoticeMessage}
-              agents={agents.managedAgents}
+              agents={runnableManagedAgents}
               agentsError={
                 agents.managedAgentsQuery.error instanceof Error
                   ? agents.managedAgentsQuery.error

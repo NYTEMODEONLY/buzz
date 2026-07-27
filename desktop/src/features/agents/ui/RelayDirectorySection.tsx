@@ -58,7 +58,9 @@ export function RelayDirectorySection({
   const communityAgents = React.useMemo(
     () =>
       [
-        ...ownerManagedRelayAgents(relayAgents, managedPubkeys, managedNames),
+        // Owner-managed identity is pubkey-authoritative: do not pass local
+        // names here, or a same-name sibling would hide Managed elsewhere.
+        ...ownerManagedRelayAgents(relayAgents, managedPubkeys),
         ...externalRelayAgents(relayAgents, managedPubkeys, managedNames),
       ].filter((agent) => !isIdentityArchived(agent.pubkey)),
     [relayAgents, managedPubkeys, managedNames, isIdentityArchived],
