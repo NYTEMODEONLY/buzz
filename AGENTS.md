@@ -30,6 +30,27 @@ See [RELEASING.md](RELEASING.md) for the desktop release flow and
 [CONTRIBUTING.md § Ecosystem](CONTRIBUTING.md#ecosystem) for contributor
 access information.
 
+## Canary cross-client identity contract
+
+For nytemode's side-by-side installation, official Buzz and Buzz Canary are
+two clients over one owner-managed agent set. App-data and keyring isolation
+must never be interpreted as permission to create a second agent team.
+
+- Reuse the owner's existing relay-declared pubkeys across both clients.
+- Render an identity whose key is held by the other installation as
+  `Managed elsewhere`; keep local runtime/edit controls disabled.
+- Do not mint, import, clone, provision, start, or draft a replacement agent
+  merely because the local registry is empty or the local keyring is isolated.
+- Creating a new agent or sibling identity requires the owner's explicit
+  approval. A request to update, rename, repair, configure, or expose an
+  existing agent is not creation approval.
+- Snapshot/team import creates new keypairs and is not an identity-continuity
+  mechanism.
+
+Contributor changes that touch discovery, onboarding, persona launch controls,
+agent drafts, or import flows must preserve this contract and its regression
+coverage.
+
 ---
 
 ## Repo Structure

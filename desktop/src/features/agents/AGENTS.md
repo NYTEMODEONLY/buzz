@@ -128,6 +128,13 @@ without a parallel TypeScript runtime list.
    Kind `30177` remains identity-authoritative when a usable kind `10100`
    profile is missing: synthesize the minimal managed card from the declaration
    and preserve its canonical pubkey instead of exposing a local launch path.
+   In nytemode's side-by-side Main/Canary installation, this is an explicit
+   one-team contract: an empty local registry or isolated keyring never
+   authorizes minting, importing, cloning, provisioning, starting, or drafting
+   a replacement. A new agent or sibling identity requires the owner's explicit
+   approval; update, rename, repair, configuration, visibility, and client-sync
+   requests are not creation approval. Snapshot/team import creates fresh
+   keypairs and is not identity reuse.
    An owner may explicitly remove a relay-only stale kind `30177` declaration,
    but that action must publish only the owner-authored NIP-09 coordinate
    deletion and must not archive the identity, alter channel membership, or

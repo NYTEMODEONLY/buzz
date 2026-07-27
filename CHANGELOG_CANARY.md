@@ -18,6 +18,9 @@
 - Added Grok Build as a first-class native ACP harness with onboarding
   selection, Grok 4.5 model discovery, managed headless defaults, and xAI
   authentication guidance.
+- Documented the one-team cross-client contract: official Buzz and Canary
+  reuse the same owner-managed agent pubkeys, and no replacement or sibling
+  identity may be created without explicit owner approval.
 - Added Canary-only footer attribution to nytemode.
 - Isolated Canary app data, keyring, deep links, release links, and updater
   trust from official Buzz.

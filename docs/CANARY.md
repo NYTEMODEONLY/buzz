@@ -87,6 +87,13 @@ relay, Canary:
 This provides one agent identity/runtime across official Buzz and Canary while
 preserving the side-by-side security boundary.
 
+The owner-approval boundary is strict: Canary must not mint, import, clone,
+provision, start, or draft a replacement merely because its local registry is
+empty or its keyring is isolated. Creating a new agent or sibling identity
+requires explicit owner approval. Updating, renaming, repairing, configuring,
+or exposing an existing agent is not creation approval. Snapshot/team import
+creates fresh keypairs and is not identity reuse.
+
 Names, built-in persona IDs, timestamps, and online status are not identity
 proof. If stale owner declarations survive an older install, resolve the exact
 pubkeys and lifecycle records before cleanup; never select a deletion target

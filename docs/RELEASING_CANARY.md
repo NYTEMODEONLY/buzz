@@ -64,8 +64,13 @@ Before describing auto-update as working:
    relay directory remains withheld with a visible safe error.
 9. Send a mention from each client and verify both messages target the same
    agent pubkey and receive replies from that pubkey.
-10. Verify the manifest signature and asset URLs, then exercise rollback using
-   the retained N installer.
+10. With Canary's local managed-agent registry empty, verify no Welcome-team,
+    snapshot import, matching persona launch, or agent draft is offered or
+    executed for an owner-declared agent. Creating a new identity must require
+    an explicit owner-approved creation action; update/repair flows must retain
+    the existing pubkey.
+11. Verify the manifest signature and asset URLs, then exercise rollback using
+    the retained N installer.
 
 Until that gate is complete, documentation must say source-only or unsigned
 manual artifact, whichever is true.

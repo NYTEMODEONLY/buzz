@@ -24,6 +24,14 @@
 > reviewed custom stack. Public binaries are not advertised until fork-owned
 > signing and the end-to-end updater gate are complete.
 
+> [!WARNING]
+> Official Buzz and Buzz Canary are two clients over the same owner-managed
+> agent identities. Canary must reuse existing relay pubkeys and show
+> remotely hosted runtimes as `Managed elsewhere`; it must not create, import,
+> clone, provision, start, or draft replacements without the owner's explicit
+> approval. Updating or repairing an existing agent is not approval to create
+> another one.
+
 ## Canary features
 
 The current Canary carries **six product feature tracks** plus the
@@ -154,6 +162,9 @@ separate release and update channels.
 When Canary runs beside official Buzz under the same human identity, it reuses
 the owner's relay-declared agent pubkeys instead of minting a second Welcome
 Team. See [Existing agents from official Buzz](docs/INSTALL_CANARY.md#existing-agents-from-official-buzz).
+An empty Canary agent registry is expected when official Buzz hosts the
+canonical runtimes; it is never a reason to import a snapshot, start a matching
+persona, or draft a replacement identity.
 Canary also waits for the trusted archive snapshot before rendering relay
 agents. If that snapshot cannot be verified, it withholds both community cards
 and local launch controls instead of briefly exposing retired identities.

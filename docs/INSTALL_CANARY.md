@@ -29,8 +29,13 @@ Sign Canary into the same Buzz human identity and community. Canary discovers
 the owner's relay-declared agents by pubkey and renders agents hosted by the
 official client as `Managed elsewhere`.
 
-Do not import or recreate those agents. Snapshot/team import intentionally
-mints fresh keypairs and therefore creates different identities.
+> [!WARNING]
+> The two clients share one logical agent team. Do not import, recreate, clone,
+> provision, start, or draft replacements for existing agents. Snapshot/team
+> import intentionally mints fresh keypairs and therefore creates different
+> identities. Creating a new agent or sibling identity requires the owner's
+> explicit approval; an update, rename, repair, configuration, visibility, or
+> client-sync request is not creation approval.
 
 Expected side-by-side result:
 
@@ -53,6 +58,9 @@ Expected side-by-side result:
    retired agent's durable kind `10100` profile, so cleanup cannot leave the
    same legacy identity behind as an `External` card. A later live declaration
    restores it.
+10. An empty Canary managed-agent registry is valid when official Buzz hosts
+    the canonical runtimes; no Welcome-team, persona-launch, import, or draft
+    flow runs unless the owner explicitly approves creating a new identity.
 
 If an older Canary already minted duplicates, compare all local and canonical
 pubkeys and their owner-authored lifecycle records first. A shared name,
