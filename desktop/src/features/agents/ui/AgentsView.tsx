@@ -29,7 +29,7 @@ import { useProfilePanel } from "@/shared/context/ProfilePanelContext";
 import { useBakedBuildEnvQuery } from "@/features/agents/hooks";
 import { isManagedAgentActive } from "@/features/agents/lib/managedAgentControlActions";
 import {
-  ownerManagedPersonaIds,
+  launchableLibraryPersonas as filterLaunchableLibraryPersonas,
   runnableLocalManagedAgents,
 } from "@/features/agents/lib/externalAgentDirectory";
 import { useGlobalAgentConfig } from "@/features/agents/useGlobalAgentConfig";
@@ -45,22 +45,29 @@ export function AgentsView() {
   const agents = useManagedAgentActions();
   const personas = usePersonaActions();
   const relayAgents = agents.relayAgentsQuery.data ?? [];
-  const remoteManagedPersonaIds = React.useMemo(
-    () => ownerManagedPersonaIds(relayAgents),
-    [relayAgents],
-  );
+  // Only a successful list_relay_agents response is authoritative. Pending or
+  // errored must not fall through to `?? []` as "no owner-managed agents."
+  const ownerManagedDeclarationsResolved = agents.relayAgentsQuery.isSuccess;
   // Hide non-canonical local siblings of owner-managed relay identities so
   // they cannot expose Start / edit / runtime controls beside Managed elsewhere.
+  // Fail closed for persona-backed locals until owner-managed declarations resolve.
   const runnableManagedAgents = React.useMemo(
-    () => runnableLocalManagedAgents(agents.managedAgents, relayAgents),
-    [agents.managedAgents, relayAgents],
+    () =>
+      runnableLocalManagedAgents(
+        agents.managedAgents,
+        relayAgents,
+        ownerManagedDeclarationsResolved,
+      ),
+    [agents.managedAgents, relayAgents, ownerManagedDeclarationsResolved],
   );
   const launchableLibraryPersonas = React.useMemo(
     () =>
-      personas.libraryPersonas.filter(
-        (persona) => !remoteManagedPersonaIds.has(persona.id),
+      filterLaunchableLibraryPersonas(
+        personas.libraryPersonas,
+        relayAgents,
+        ownerManagedDeclarationsResolved,
       ),
-    [personas.libraryPersonas, remoteManagedPersonaIds],
+    [personas.libraryPersonas, relayAgents, ownerManagedDeclarationsResolved],
   );
   const teamImportInputRef = React.useRef<HTMLInputElement | null>(null);
   const aiDefaultsTriggerRef = React.useRef<HTMLButtonElement>(null);

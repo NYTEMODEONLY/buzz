@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   externalRelayAgents,
   formatExternalAgentType,
+  launchableLibraryPersonas,
   ownerManagedRelayAgents,
   ownerManagedPersonaIds,
   runnableLocalManagedAgents,
@@ -180,15 +181,71 @@ test("runnableLocalManagedAgents drops noncanonical same-persona siblings", () =
     personaId: "persona:other",
   });
 
-  assert.deepEqual(runnableLocalManagedAgents([sibling, custom], relay), [
+  assert.deepEqual(runnableLocalManagedAgents([sibling, custom], relay, true), [
     custom,
   ]);
   assert.deepEqual(
     runnableLocalManagedAgents(
       [hostOfCanonical, sibling, unrelatedPersona],
       relay,
+      true,
     ),
     [hostOfCanonical, unrelatedPersona],
+  );
+});
+
+test("runnableLocalManagedAgents fails closed until owner-managed declarations resolve", () => {
+  const siblingPubkey =
+    "44531d553d20a29e9aabf806faa2aca8ee4715dd487e1bf00ba76a433c41b5aa";
+  const sibling = managedAgent({
+    pubkey: siblingPubkey,
+    personaId: "persona:zero-coding",
+  });
+  const custom = managedAgent({
+    pubkey: "d".repeat(64),
+    personaId: null,
+  });
+
+  // Empty relayAgents while unresolved must NOT be treated as "no owner-managed".
+  assert.deepEqual(runnableLocalManagedAgents([sibling, custom], [], false), [
+    custom,
+  ]);
+  // Even if partial data were present, unresolved still withholds persona locals.
+  assert.deepEqual(
+    runnableLocalManagedAgents(
+      [sibling, custom],
+      [
+        relayAgent({
+          pubkey:
+            "a01c81071e15dc14e52eae1e169f1c684a3e2b4d9c2b63f0599aee9444a917ba",
+          isOwnerManaged: true,
+          ownerManagedPersonaId: "persona:zero-coding",
+        }),
+      ],
+      false,
+    ),
+    [custom],
+  );
+});
+
+test("launchableLibraryPersonas fails closed until owner-managed declarations resolve", () => {
+  const personas = [
+    { id: "persona:zero-coding" },
+    { id: "persona:custom-helper" },
+  ];
+  assert.deepEqual(launchableLibraryPersonas(personas, [], false), []);
+  assert.deepEqual(
+    launchableLibraryPersonas(
+      personas,
+      [
+        relayAgent({
+          isOwnerManaged: true,
+          ownerManagedPersonaId: "persona:zero-coding",
+        }),
+      ],
+      true,
+    ),
+    [{ id: "persona:custom-helper" }],
   );
 });
 

@@ -218,6 +218,13 @@ type MockBridgeOptions = {
   teams?: MockTeamSeed[];
   relayAgents?: MockRelayAgentSeed[];
   agentListDelayMs?: number;
+  /**
+   * Delays only `list_relay_agents` (not `list_managed_agents`). Use with a
+   * fast local agent list to exercise the split-source fail-closed race.
+   */
+  relayAgentsDelayMs?: number;
+  /** Rejects `list_relay_agents` after any delay — models relay error. */
+  relayAgentsError?: string;
   createManagedAgentDelayMs?: number;
   channelTemplates?: ChannelTemplate[];
   addChannelMembersDelayMs?: number;

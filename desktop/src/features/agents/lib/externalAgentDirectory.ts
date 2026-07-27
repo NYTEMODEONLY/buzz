@@ -78,12 +78,31 @@ export function ownerManagedPubkeysByPersonaId(
  * must not expose Start / edit / runtime controls; the canonical card is
  * rendered as Managed elsewhere instead.
  *
- * Local agents that hold the owner-managed pubkey (this install is the host)
- * are kept. Agents without a persona id are kept (custom instances).
+ * Fail closed while owner-managed relay declarations are not yet known
+ * (`ownerManagedDeclarationsResolved === false`): pending or errored
+ * `list_relay_agents` must not treat an empty `?? []` as "no owner-managed
+ * agents," or a persona-backed sibling can race in with Start/edit/runtime
+ * controls until (or forever after) the remote map arrives. Custom agents
+ * without a persona id cannot collide on owner-managed persona declarations
+ * and stay runnable.
+ *
+ * Once resolved, local agents that hold the owner-managed pubkey (this install
+ * is the host) are kept. Agents without a persona id are always kept.
  */
 export function runnableLocalManagedAgents<
   T extends Pick<ManagedAgent, "pubkey" | "personaId">,
->(managedAgents: readonly T[], relayAgents: readonly RelayAgent[]): T[] {
+>(
+  managedAgents: readonly T[],
+  relayAgents: readonly RelayAgent[],
+  // Mandatory: a default of true would reintroduce the fail-open cold-start
+  // path when a future call site omits the query success flag.
+  ownerManagedDeclarationsResolved: boolean,
+): T[] {
+  if (!ownerManagedDeclarationsResolved) {
+    // Persona-backed locals are withheld until the owner-managed map is known.
+    return managedAgents.filter((agent) => !agent.personaId);
+  }
+
   const canonicalByPersona = ownerManagedPubkeysByPersonaId(relayAgents);
   if (canonicalByPersona.size === 0) return [...managedAgents];
 
@@ -93,6 +112,28 @@ export function runnableLocalManagedAgents<
     if (!canonicalPubkeys || canonicalPubkeys.size === 0) return true;
     return canonicalPubkeys.has(normalizePubkey(agent.pubkey));
   });
+}
+
+/**
+ * Library personas that may expose a Start / launch control.
+ *
+ * Fail closed until owner-managed relay declarations have resolved
+ * successfully — any persona id could be declared remotely under a different
+ * pubkey. Once resolved, owner-managed persona ids are excluded so they do not
+ * mint a second local sibling.
+ */
+export function launchableLibraryPersonas<T extends { id: string }>(
+  libraryPersonas: readonly T[],
+  relayAgents: readonly RelayAgent[],
+  ownerManagedDeclarationsResolved: boolean,
+): T[] {
+  if (!ownerManagedDeclarationsResolved) {
+    return [];
+  }
+  const remoteManagedPersonaIds = ownerManagedPersonaIds(relayAgents);
+  return libraryPersonas.filter(
+    (persona) => !remoteManagedPersonaIds.has(persona.id),
+  );
 }
 
 export function formatExternalAgentType(agentType: string): string {

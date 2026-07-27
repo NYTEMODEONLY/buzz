@@ -213,6 +213,13 @@ type E2eConfig = {
     teams?: MockTeamSeed[];
     relayAgents?: MockRelayAgentSeed[];
     agentListDelayMs?: number;
+    /**
+     * Delays only `list_relay_agents` (not `list_managed_agents`). Use with a
+     * fast local agent list to exercise the split-source fail-closed race.
+     */
+    relayAgentsDelayMs?: number;
+    /** Rejects `list_relay_agents` after any delay — models relay error. */
+    relayAgentsError?: string;
     agentMemory?: RawAgentMemoryListing | Record<string, RawAgentMemoryListing>;
     addChannelMembersDelayMs?: number;
     /** Sequenced add-member failures. A string fails that call; null succeeds. */
@@ -6903,6 +6910,16 @@ async function handleListRelayAgents(
   config: E2eConfig | undefined,
 ): Promise<RawRelayAgent[]> {
   await delayAgentList(config);
+  const relayAgentsDelayMs = config?.mock?.relayAgentsDelayMs ?? 0;
+  if (relayAgentsDelayMs > 0) {
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, relayAgentsDelayMs);
+    });
+  }
+  const relayAgentsError = config?.mock?.relayAgentsError;
+  if (relayAgentsError) {
+    throw new Error(relayAgentsError);
+  }
   syncMockRelayAgentsFromManagedAgents();
   return mockRelayAgents.map(cloneRelayAgent);
 }

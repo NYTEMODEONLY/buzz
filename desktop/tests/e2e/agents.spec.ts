@@ -379,6 +379,162 @@ test("canonical owner-managed ZERO stays Managed elsewhere over a same-name loca
   );
 });
 
+test("persona-backed sibling exposes no controls while owner-managed relay list is delayed", async ({
+  page,
+}) => {
+  // Split-source race: local managed list resolves immediately while
+  // list_relay_agents is still pending. Persona-backed siblings must stay
+  // non-runnable the entire window; custom agents (no persona) stay usable.
+  const canonicalZero =
+    "a01c81071e15dc14e52eae1e169f1c684a3e2b4d9c2b63f0599aee9444a917ba";
+  const siblingZero =
+    "44531d553d20a29e9aabf806faa2aca8ee4715dd487e1bf00ba76a433c41b5aa";
+  const customPubkey = "d".repeat(64);
+  const personaId = "builtin:fizz";
+  const relayDelayMs = 3_000;
+
+  await installMockBridge(page, {
+    managedAgents: [
+      {
+        pubkey: siblingZero,
+        name: "ZERO",
+        personaId,
+        status: "stopped",
+      },
+      {
+        pubkey: customPubkey,
+        name: "Custom Helper",
+        personaId: null,
+        status: "stopped",
+      },
+    ],
+    activePersonaIds: [personaId],
+    relayAgents: [
+      {
+        pubkey: canonicalZero,
+        name: "ZERO",
+        ownerPubkey: TEST_IDENTITIES.tyler.pubkey,
+        isOwnerManaged: true,
+        ownerManagedPersonaId: personaId,
+        agentType: "codex",
+        channelNames: ["general"],
+        status: "online",
+      },
+    ],
+    relayAgentsDelayMs: relayDelayMs,
+  });
+  await gotoApp(page);
+  await page.getByTestId("open-agents-view").click();
+
+  // Local managed list is already in; custom card can render Start.
+  await expect(
+    page.getByTestId(`agent-runtime-start-${customPubkey}`),
+  ).toBeVisible();
+
+  // Sibling + persona launch must never appear during the pending window.
+  await expect(
+    page.getByTestId(`agent-runtime-start-${siblingZero}`),
+  ).toHaveCount(0);
+  await expect(page.getByTestId(`managed-agent-${siblingZero}`)).toHaveCount(0);
+  await expect(
+    page.getByTestId(`persona-runtime-start-${personaId}`),
+  ).toHaveCount(0);
+  await expect(page.getByTestId(`persona-agent-row-${personaId}`)).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByTestId(`external-agent-card-${canonicalZero}`),
+  ).toHaveCount(0);
+
+  // After relay resolves: Managed elsewhere appears; sibling still non-runnable.
+  const canonicalCard = page.getByTestId(
+    `external-agent-card-${canonicalZero}`,
+  );
+  await expect(canonicalCard).toBeVisible({ timeout: relayDelayMs + 5_000 });
+  await expect(canonicalCard).toContainText("Managed elsewhere");
+  await expect(
+    page.getByTestId(`agent-runtime-start-${siblingZero}`),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId(`persona-runtime-start-${personaId}`),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId(`agent-runtime-start-${customPubkey}`),
+  ).toBeVisible();
+});
+
+test("persona-backed sibling exposes no controls when owner-managed relay list errors", async ({
+  page,
+}) => {
+  // On relay failure, owner-managed declarations never resolve successfully —
+  // fail closed for persona-backed locals indefinitely. Custom agents remain.
+  const siblingZero =
+    "44531d553d20a29e9aabf806faa2aca8ee4715dd487e1bf00ba76a433c41b5aa";
+  const customPubkey = "d".repeat(64);
+  const personaId = "builtin:fizz";
+
+  await installMockBridge(page, {
+    managedAgents: [
+      {
+        pubkey: siblingZero,
+        name: "ZERO",
+        personaId,
+        status: "stopped",
+      },
+      {
+        pubkey: customPubkey,
+        name: "Custom Helper",
+        personaId: null,
+        status: "stopped",
+      },
+    ],
+    activePersonaIds: [personaId],
+    relayAgents: [
+      {
+        pubkey:
+          "a01c81071e15dc14e52eae1e169f1c684a3e2b4d9c2b63f0599aee9444a917ba",
+        name: "ZERO",
+        ownerPubkey: TEST_IDENTITIES.tyler.pubkey,
+        isOwnerManaged: true,
+        ownerManagedPersonaId: personaId,
+        agentType: "codex",
+        channelNames: ["general"],
+        status: "online",
+      },
+    ],
+    relayAgentsError: "relay owner-managed declarations unavailable",
+  });
+  await gotoApp(page);
+  await page.getByTestId("open-agents-view").click();
+
+  // Wait for the settled error surface before control assertions. Asserting
+  // while list_relay_agents is still pending would pass for the wrong reason
+  // (fail-closed pending vs fail-closed error).
+  await expect(page.getByTestId("relay-directory-error")).toBeVisible();
+  await expect(page.getByTestId("relay-directory-error")).toContainText(
+    "relay owner-managed declarations unavailable",
+  );
+
+  await expect(
+    page.getByTestId(`agent-runtime-start-${customPubkey}`),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(`agent-runtime-start-${siblingZero}`),
+  ).toHaveCount(0);
+  await expect(page.getByTestId(`managed-agent-${siblingZero}`)).toHaveCount(0);
+  await expect(
+    page.getByTestId(`persona-runtime-start-${personaId}`),
+  ).toHaveCount(0);
+  await expect(page.getByTestId(`persona-agent-row-${personaId}`)).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByTestId(
+      "external-agent-card-a01c81071e15dc14e52eae1e169f1c684a3e2b4d9c2b63f0599aee9444a917ba",
+    ),
+  ).toHaveCount(0);
+});
+
 test("owner can remove a relay-only stale managed-agent declaration without archiving it", async ({
   page,
 }) => {

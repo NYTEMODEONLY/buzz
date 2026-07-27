@@ -111,7 +111,22 @@ export function RelayDirectorySection({
     );
   }
 
-  if (communityAgents.length === 0) return null;
+  // Settled relay-directory error must surface even when communityAgents is
+  // empty. Returning null on an empty list would hide the error and leave
+  // fail-closed E2E unable to await a deterministic post-error marker.
+  const relayDirectoryError =
+    error != null ? (
+      <p
+        className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        data-testid="relay-directory-error"
+      >
+        {error.message}
+      </p>
+    ) : null;
+
+  if (communityAgents.length === 0) {
+    return relayDirectoryError;
+  }
 
   return (
     <section className="space-y-3">
@@ -217,11 +232,7 @@ export function RelayDirectorySection({
         </>
       ) : null}
 
-      {error ? (
-        <p className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error.message}
-        </p>
-      ) : null}
+      {relayDirectoryError}
 
       <ExternalAgentPresentationDialog
         agent={agentToCustomize}
