@@ -10,8 +10,12 @@ use crate::managed_agents::{
     HarnessSource,
 };
 
+mod command_search;
 mod runtime_metadata;
 
+use command_search::command_search_dirs;
+#[cfg(test)]
+use command_search::command_search_dirs_from;
 pub(crate) use runtime_metadata::KnownAcpRuntime;
 
 const GOOSE_AVATAR_URL: &str = "https://goose-docs.ai/img/logo_dark.png";
@@ -490,47 +494,6 @@ pub fn normalize_agent_args(command: &str, agent_args: Vec<String>) -> Vec<Strin
     }
 
     normalized
-}
-
-fn profile_target_dirs(root: &Path) -> [PathBuf; 2] {
-    if cfg!(debug_assertions) {
-        // `just dev` builds fresh debug sidecars; never prefer stale release output.
-        [root.join("target/debug"), root.join("target/release")]
-    } else {
-        [root.join("target/release"), root.join("target/debug")]
-    }
-}
-
-fn command_search_dirs_from(
-    workspace_root: PathBuf,
-    current_dir: Option<PathBuf>,
-    executable_parent: Option<PathBuf>,
-) -> Vec<PathBuf> {
-    // A packaged app must be self-contained even when it was built locally and
-    // the compile-time workspace still exists on the same machine. Prefer the
-    // sidecars beside the running executable before considering build outputs.
-    let mut dirs = executable_parent.into_iter().collect::<Vec<_>>();
-    dirs.extend(profile_target_dirs(&workspace_root));
-    if let Some(current_dir) = current_dir {
-        dirs.extend(profile_target_dirs(&current_dir));
-    }
-
-    dirs.into_iter().fold(Vec::new(), |mut unique, dir| {
-        if !unique.contains(&dir) {
-            unique.push(dir);
-        }
-        unique
-    })
-}
-
-fn command_search_dirs() -> Vec<PathBuf> {
-    command_search_dirs_from(
-        workspace_root_dir(),
-        std::env::current_dir().ok(),
-        std::env::current_exe()
-            .ok()
-            .and_then(|path| path.parent().map(Path::to_path_buf)),
-    )
 }
 
 fn is_executable_file(path: &Path) -> bool {
