@@ -49,35 +49,30 @@ type ProviderUsageViewState =
 
 const toneClasses = {
   healthy: {
-    stroke: "stroke-emerald-500",
-    text: "text-emerald-600 dark:text-emerald-400",
-    progress: "[&>div]:bg-emerald-500",
+    progress: "[&>div]:bg-primary",
+    sidebarStroke: "stroke-sidebar-primary",
   },
   warning: {
-    stroke: "stroke-amber-500",
-    text: "text-amber-600 dark:text-amber-400",
-    progress: "[&>div]:bg-amber-500",
+    progress: "[&>div]:bg-warning",
+    sidebarStroke: "stroke-warning",
   },
   critical: {
-    stroke: "stroke-red-500",
-    text: "text-red-600 dark:text-red-400",
-    progress: "[&>div]:bg-red-500",
+    progress: "[&>div]:bg-destructive",
+    sidebarStroke: "stroke-destructive",
   },
 } as const;
 
 function UsageRing({
-  compact = false,
   remainingPercent,
+  size,
   state,
-  label,
 }: {
-  compact?: boolean;
   remainingPercent?: number;
+  size: "chrome" | "settings";
   state: ProviderUsageViewState;
-  label: string;
 }) {
-  const sizeClass = compact ? "h-5 w-5" : "h-8 w-8";
-  const iconClass = compact ? "h-3 w-3" : "h-4 w-4";
+  const sizeClass = "h-[18px] w-[18px]";
+  const iconClass = size === "chrome" ? "h-2.5 w-2.5" : "h-3 w-3";
 
   if (state === "loading") {
     return <Spinner aria-hidden="true" className={cn(sizeClass, "border-2")} />;
@@ -94,11 +89,11 @@ function UsageRing({
     return (
       <span
         className={cn(
-          "flex items-center justify-center rounded-full",
+          "flex shrink-0 items-center justify-center rounded-full",
           sizeClass,
           state === "error"
             ? "bg-destructive/10 text-destructive"
-            : "bg-muted text-muted-foreground",
+            : "bg-sidebar-accent text-sidebar-foreground/65",
         )}
         data-state={state}
       >
@@ -120,10 +115,13 @@ function UsageRing({
       aria-hidden="true"
       data-state={state}
     >
-      <svg className={cn("-rotate-90", sizeClass)} viewBox="0 0 32 32">
-        <title>{label} allowance remaining</title>
+      <svg
+        aria-hidden="true"
+        className={cn("-rotate-90", sizeClass)}
+        viewBox="0 0 32 32"
+      >
         <circle
-          className="stroke-muted"
+          className="stroke-sidebar-border/70"
           cx="16"
           cy="16"
           fill="none"
@@ -132,8 +130,8 @@ function UsageRing({
         />
         <circle
           className={cn(
-            "transition-[stroke-dashoffset] duration-300",
-            toneClasses[tone].stroke,
+            "motion-safe:transition-[stroke-dashoffset] motion-safe:duration-300",
+            toneClasses[tone].sidebarStroke,
           )}
           cx="16"
           cy="16"
@@ -146,7 +144,7 @@ function UsageRing({
         />
       </svg>
       {state === "stale" ? (
-        <Clock3 className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-sidebar text-amber-500" />
+        <Clock3 className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-sidebar-accent text-warning" />
       ) : null}
     </span>
   );
@@ -226,92 +224,46 @@ export function SidebarProviderUsageIndicator({
   const ariaSummary = rows
     .map((row) =>
       row.constrainingWindow
-        ? `${row.productLabel}: ${row.constrainingWindow.remainingPercent}% left`
+        ? `${row.productLabel}: ${row.constrainingWindow.remainingPercent}% remaining`
         : `${row.productLabel}: ${compactStatusLabel(row.state)}`,
     )
     .join("; ");
+  const popoverTitleId = React.useId();
+  const popoverDescriptionId = React.useId();
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
-          aria-label={ariaSummary}
-          className={cn(
-            "flex shrink-0 items-center gap-2 rounded-lg text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-sidebar-ring",
-            compact
-              ? "ml-auto h-[28px] w-auto border-0 bg-transparent px-2 py-0"
-              : "mb-2 w-full border border-sidebar-border/70 bg-sidebar-accent/35 px-2 py-2 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1",
-          )}
-          data-testid="sidebar-provider-usage"
-          type="button"
-        >
-          <span className="flex shrink-0 items-center -space-x-1">
-            {rows.map((row) => (
-              <span
-                className="rounded-full bg-sidebar"
-                data-testid={`provider-usage-${row.provider}`}
-                key={row.provider}
-              >
-                <UsageRing
-                  compact={compact}
-                  label={row.productLabel}
-                  remainingPercent={row.constrainingWindow?.remainingPercent}
-                  state={row.state}
-                />
-              </span>
-            ))}
-          </span>
-          <span
-            className={cn(
-              "min-w-0 flex-1",
-              !compact && "group-data-[collapsible=icon]:hidden",
-            )}
-          >
-            <span
-              className={cn(
-                "block text-xs font-medium",
-                compact && "whitespace-nowrap",
-              )}
-            >
-              {compact
-                ? rows
-                    .map((row) =>
-                      row.constrainingWindow
-                        ? `${shortProviderLabel(row.provider)} ${row.constrainingWindow.remainingPercent}%`
-                        : `${shortProviderLabel(row.provider)} ${compactValue(row.state)}`,
-                    )
-                    .join(" · ")
-                : "AI provider allowance"}
-            </span>
-            {!compact ? (
-              <span className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-sm font-semibold tabular-nums text-muted-foreground">
-                {rows.map((row) => (
-                  <span className="whitespace-nowrap" key={row.provider}>
-                    {row.productLabel}{" "}
-                    {row.constrainingWindow
-                      ? `${row.constrainingWindow.remainingPercent}%`
-                      : compactValue(row.state)}
-                  </span>
-                ))}
-              </span>
-            ) : null}
-          </span>
-        </button>
+        {compact ? (
+          <ChromeUsageTrigger ariaSummary={ariaSummary} rows={rows} />
+        ) : (
+          <SettingsUsageTrigger ariaSummary={ariaSummary} rows={rows} />
+        )}
       </PopoverTrigger>
 
       <PopoverContent
+        aria-describedby={popoverDescriptionId}
+        aria-labelledby={popoverTitleId}
         align="end"
-        className="w-[min(28rem,calc(100vw-2rem))]"
+        className="max-h-[min(38rem,var(--radix-popover-content-available-height))] w-[min(25rem,var(--radix-popover-content-available-width),calc(100vw-1.5rem))] overflow-y-auto overscroll-contain p-3"
+        collisionPadding={12}
+        role="dialog"
         side={compact ? "bottom" : "right"}
-        sideOffset={10}
+        sideOffset={compact ? 10 : 14}
       >
-        <div>
-          <p className="font-semibold">AI provider allowance</p>
-          <p className="text-xs text-muted-foreground">
-            All providers used by active agents
+        <div className="px-0.5">
+          <h2 className="text-sm font-semibold" id={popoverTitleId}>
+            AI usage
+          </h2>
+          <p
+            className="mt-0.5 text-2xs text-muted-foreground"
+            id={popoverDescriptionId}
+          >
+            {rows.length} {rows.length === 1 ? "provider" : "providers"} used by
+            active agents
           </p>
         </div>
-        <div className="mt-4 space-y-3">
+        <div className="mt-3 space-y-2">
           {rows.map((row) => (
             <ProviderAllowanceCard key={row.provider} {...row} />
           ))}
@@ -321,6 +273,124 @@ export function SidebarProviderUsageIndicator({
   );
 }
 
+type ProviderUsageRow = {
+  capability: ProviderUsageCapability | undefined;
+  constrainingWindow: ProviderUsageSnapshot["windows"][number] | undefined;
+  errorMessage: string | null;
+  productLabel: string;
+  provider: ProviderUsageId;
+  query: UseQueryResult<ProviderUsageSnapshot, Error> | undefined;
+  state: ProviderUsageViewState;
+  supported: boolean;
+  usage: ProviderUsageSnapshot | undefined;
+};
+
+type UsageTriggerProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  ariaSummary: string;
+  rows: ProviderUsageRow[];
+};
+
+const ChromeUsageTrigger = React.forwardRef<
+  HTMLButtonElement,
+  UsageTriggerProps
+>(function ChromeUsageTrigger(
+  { ariaSummary, className, rows, ...triggerProps },
+  ref,
+) {
+  return (
+    <button
+      {...triggerProps}
+      aria-label={`Open AI usage details. ${ariaSummary}`}
+      className={cn(
+        "ml-auto flex h-[28px] min-w-0 max-w-[min(30rem,calc(100vw-9rem))] shrink items-center gap-2 overflow-hidden rounded-lg px-2 text-left text-sidebar-foreground transition-colors hover:bg-sidebar-accent focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-sidebar-ring",
+        className,
+      )}
+      data-testid="sidebar-provider-usage"
+      ref={ref}
+      type="button"
+    >
+      {rows.map((row) => (
+        <span
+          className="flex min-w-0 shrink items-center gap-1 whitespace-nowrap text-xs font-medium tabular-nums"
+          data-testid={`provider-usage-${row.provider}`}
+          key={row.provider}
+        >
+          <UsageRing
+            remainingPercent={row.constrainingWindow?.remainingPercent}
+            size="chrome"
+            state={row.state}
+          />
+          <span className="max-[900px]:hidden">{row.productLabel}</span>
+          <span className="hidden max-[900px]:inline" aria-hidden="true">
+            {narrowProviderLabel(row.provider)}
+          </span>{" "}
+          <span>
+            {row.constrainingWindow
+              ? `${row.constrainingWindow.remainingPercent}%`
+              : compactValue(row.state)}
+          </span>
+        </span>
+      ))}
+    </button>
+  );
+});
+
+const SettingsUsageTrigger = React.forwardRef<
+  HTMLButtonElement,
+  UsageTriggerProps
+>(function SettingsUsageTrigger(
+  { ariaSummary, className, rows, ...triggerProps },
+  ref,
+) {
+  return (
+    <button
+      {...triggerProps}
+      aria-label={`Open AI usage details. ${ariaSummary}`}
+      className={cn(
+        "mb-2 w-full rounded-lg border border-sidebar-border/70 bg-sidebar-accent/35 px-2 py-1.5 text-left text-sidebar-foreground transition-colors hover:bg-sidebar-accent/55 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1",
+        className,
+      )}
+      data-testid="sidebar-provider-usage"
+      ref={ref}
+      type="button"
+    >
+      {rows[0] ? (
+        <span className="hidden group-data-[collapsible=icon]:block">
+          <UsageRing
+            remainingPercent={rows[0].constrainingWindow?.remainingPercent}
+            size="settings"
+            state={rows[0].state}
+          />
+        </span>
+      ) : null}
+      <span className="block text-2xs font-medium text-sidebar-foreground/65 group-data-[collapsible=icon]:hidden">
+        AI usage
+      </span>
+      <span className="mt-1 flex min-w-0 flex-wrap gap-x-2 gap-y-1 group-data-[collapsible=icon]:hidden">
+        {rows.map((row) => (
+          <span
+            className="flex min-w-[5.125rem] flex-1 items-center gap-0.5 text-xs font-semibold tabular-nums"
+            data-testid={`provider-usage-${row.provider}`}
+            key={row.provider}
+          >
+            <UsageRing
+              remainingPercent={row.constrainingWindow?.remainingPercent}
+              size="settings"
+              state={row.state}
+            />
+            <span className="min-w-0 truncate">{row.productLabel}</span>{" "}
+            <span className="ml-auto shrink-0">
+              {row.constrainingWindow
+                ? `${row.constrainingWindow.remainingPercent}%`
+                : compactValue(row.state)}
+            </span>
+          </span>
+        ))}
+      </span>
+    </button>
+  );
+});
+
 function providerLabel(provider: ProviderUsageId): string {
   return provider === "codex"
     ? "Codex"
@@ -329,12 +399,8 @@ function providerLabel(provider: ProviderUsageId): string {
       : "Grok";
 }
 
-function shortProviderLabel(provider: ProviderUsageId): string {
-  return provider === "codex"
-    ? "Codex"
-    : provider === "claude"
-      ? "Claude"
-      : "Grok";
+function narrowProviderLabel(provider: ProviderUsageId): string {
+  return provider === "codex" ? "C" : provider === "claude" ? "Cl" : "G";
 }
 
 function compactValue(state: ProviderUsageViewState): string {
@@ -393,27 +459,41 @@ function ProviderAllowanceCard({
   const planLabel = usage?.planType
     ? `${productLabel} ${usage.planType.charAt(0).toUpperCase()}${usage.planType.slice(1)}`
     : productLabel;
-  const sourceLabel = providerSourceLabel(usage);
   const totalsLabel = providerTotalsLabel(usage);
   const accountLabel =
     usage?.account?.label ??
     [usage?.account?.accountType, usage?.account?.loginMethod]
       .filter((value): value is string => Boolean(value))
       .join(" · ");
+  const headingId = React.useId();
+  const [refreshNotice, setRefreshNotice] = React.useState("");
+  const additionalWindows =
+    usage?.windows.filter((window) => window.id !== constrainingWindow?.id) ??
+    [];
+
+  async function refreshAllowance() {
+    setRefreshNotice("");
+    const result = await query?.refetch();
+    setRefreshNotice(
+      result?.isSuccess
+        ? `${productLabel} allowance updated.`
+        : `${productLabel} allowance could not be updated.`,
+    );
+  }
 
   return (
     <section
-      className="rounded-lg border border-border/70 p-3"
+      aria-labelledby={headingId}
+      className="rounded-lg border border-border/70 p-2.5"
       data-testid={`provider-allowance-card-${provider}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold">{planLabel}</p>
-          <p className="text-2xs text-muted-foreground">
-            {supported ? sourceLabel : "Allowance reader unavailable"}
-          </p>
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-semibold" id={headingId}>
+            {planLabel}
+          </h3>
           {accountLabel ? (
-            <p className="mt-0.5 text-2xs text-muted-foreground">
+            <p className="mt-0.5 truncate text-2xs text-muted-foreground">
               {accountLabel}
             </p>
           ) : null}
@@ -422,23 +502,26 @@ function ProviderAllowanceCard({
           <Button
             aria-label={`Refresh ${productLabel} allowance`}
             disabled={query?.isFetching}
-            onClick={() => void query?.refetch()}
-            size="icon-xs"
+            onClick={() => void refreshAllowance()}
+            size="icon"
             type="button"
             variant="ghost"
           >
             <RefreshCw
               aria-hidden="true"
-              className={cn(query?.isFetching && "animate-spin")}
+              className={cn(query?.isFetching && "motion-safe:animate-spin")}
             />
           </Button>
         ) : null}
       </div>
+      <span aria-live="polite" className="sr-only" role="status">
+        {refreshNotice}
+      </span>
       {usage && constrainingWindow ? (
-        <div className="mt-3 space-y-3">
+        <div className="mt-2.5 space-y-2.5">
           {state === "stale" ? (
             <div
-              className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2 py-1.5 text-2xs text-amber-700 dark:text-amber-300"
+              className="flex items-center gap-1.5 rounded-md bg-warning-bg px-2 py-1.5 text-2xs text-warning"
               data-testid={`provider-usage-stale-${provider}`}
             >
               <Clock3 aria-hidden="true" className="h-3.5 w-3.5" />
@@ -446,9 +529,9 @@ function ProviderAllowanceCard({
             </div>
           ) : null}
           <div>
-            <div className="mb-1.5 flex items-baseline justify-between">
-              <span className="text-xl font-semibold tabular-nums">
-                {constrainingWindow.remainingPercent}% left
+            <div className="mb-1.5 flex items-baseline justify-between gap-3">
+              <span className="text-lg font-semibold tabular-nums">
+                {constrainingWindow.remainingPercent}% remaining
               </span>
               <span className="text-xs text-muted-foreground">
                 {constrainingWindow.usedPercent}% used
@@ -456,42 +539,60 @@ function ProviderAllowanceCard({
             </div>
             <Progress
               aria-label={`${productLabel}: ${constrainingWindow.remainingPercent}% remaining`}
-              className={cn("h-2 bg-muted", tone && toneClasses[tone].progress)}
+              aria-valuetext={`${constrainingWindow.remainingPercent}% remaining for ${constrainingWindow.label}; resets ${formatUsageReset(constrainingWindow.resetsAt)}`}
+              className={cn(
+                "h-1.5 bg-muted [&>div]:motion-reduce:transition-none",
+                tone && toneClasses[tone].progress,
+              )}
               value={constrainingWindow.remainingPercent}
             />
-            <p className="mt-2 text-2xs text-muted-foreground">
+            <p className="mt-1.5 text-2xs text-muted-foreground">
               {constrainingWindow.label} · Resets{" "}
               {formatUsageReset(constrainingWindow.resetsAt)}
             </p>
           </div>
-          {usage.windows.length > 1 ? (
+          {additionalWindows.length > 0 ? (
             <dl className="space-y-1.5 rounded-md bg-muted/45 p-2 text-2xs">
-              {usage.windows.map((window) => (
+              {additionalWindows.map((window) => (
                 <div
-                  className="flex items-start justify-between gap-3"
+                  className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5"
                   key={window.id}
                 >
-                  <dt className="text-muted-foreground">{window.label}</dt>
+                  <dt className="min-w-0 truncate text-muted-foreground">
+                    {window.label}
+                  </dt>
                   <dd className="text-right font-medium tabular-nums">
-                    {window.remainingPercent}% left ·{" "}
-                    {formatUsageReset(window.resetsAt)}
+                    {window.remainingPercent}% remaining
+                  </dd>
+                  <dd className="col-span-2 text-muted-foreground">
+                    Resets {formatUsageReset(window.resetsAt)}
                   </dd>
                 </div>
               ))}
             </dl>
           ) : null}
-          <p className="text-2xs text-muted-foreground">
-            {totalsLabel ? `${totalsLabel} · ` : ""}
-            Updated{" "}
-            {new Date(usage.fetchedAt * 1000).toLocaleTimeString([], {
-              hour: "numeric",
-              minute: "2-digit",
-            })}
-          </p>
-          <p className="text-2xs text-muted-foreground">
-            {sourceLabel}
-            {usage.dataConfidence === "percentOnly" ? " · Percentage only" : ""}
-          </p>
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border/50 pt-2 text-2xs text-muted-foreground">
+            <span>{providerSourceMetadata(usage)}</span>
+            {totalsLabel ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{totalsLabel}</span>
+              </>
+            ) : null}
+            <span aria-hidden="true">·</span>
+            <span>
+              Updated{" "}
+              {new Date(usage.fetchedAt * 1000).toLocaleTimeString([], {
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </span>
+            {usage.dataConfidence === "percentOnly" ? (
+              <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-foreground/75">
+                Percentage only
+              </span>
+            ) : null}
+          </div>
         </div>
       ) : (
         <div
@@ -525,6 +626,21 @@ function providerSourceLabel(usage: ProviderUsageSnapshot | undefined): string {
     return "Grok Build consumer allowance · Local Grok CLI account · Experimental reader";
   }
   return "Personal subscription allowance";
+}
+
+function providerSourceMetadata(
+  usage: ProviderUsageSnapshot | undefined,
+): string {
+  if (usage?.sourceDetail === "codexAppServer") {
+    return "Personal · Codex app-server";
+  }
+  if (usage?.sourceDetail === "grokCliBilling") {
+    return "Grok Build · Local CLI";
+  }
+  if (usage?.sourceDetail === "grokWebBilling") {
+    return "Grok Build · Local CLI account · Experimental";
+  }
+  return providerSourceLabel(usage);
 }
 
 function providerTotalsLabel(
