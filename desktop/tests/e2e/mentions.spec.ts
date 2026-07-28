@@ -852,6 +852,42 @@ test("managed relay agents are visible in channel mentions regardless of relay p
   await expect(dropdown.getByText("agent")).toBeVisible();
 });
 
+test("managed agent name overrides a cold relay npub fallback", async ({
+  page,
+}) => {
+  const musePubkey =
+    "49d09916907eab36c6fd0dfe36c481ee4eb7d6527d368decec35d992862aa2e2";
+  const museNpub =
+    "npub1f8gfj95s064nd3haphrld3ypae8t04jj05mgmm8vxhve9p325t3q00elya";
+  await installMockBridge(page, {
+    managedAgents: [
+      {
+        pubkey: musePubkey,
+        name: "MUSE",
+        status: "running",
+      },
+    ],
+    relayAgents: [
+      {
+        pubkey: musePubkey,
+        name: museNpub,
+      },
+    ],
+  });
+  await page.goto("/");
+  await page.getByTestId("channel-general").click();
+  await expect(page.getByTestId("chat-title")).toHaveText("general");
+
+  const input = page.getByTestId("message-input");
+  await input.fill("@");
+
+  const dropdown = autocomplete(page);
+  const museRow = dropdown.locator("button", { hasText: "MUSE" });
+  await expect(museRow.getByText("MUSE", { exact: true })).toBeVisible();
+  await expect(museRow.getByText("managed by you")).toBeVisible();
+  await expect(dropdown.getByText(museNpub, { exact: true })).toHaveCount(0);
+});
+
 test("relay-only agents are visible in channel mentions when allowlisted", async ({
   page,
 }) => {

@@ -53,6 +53,33 @@ export function presentMentionCandidate(
     : candidate;
 }
 
+export function mergeMentionCandidateDisplayName(
+  current: Pick<MentionCandidate, "displayName" | "isAgent" | "isManagedAgent">,
+  candidate: Pick<
+    MentionCandidate,
+    "displayName" | "isAgent" | "isManagedAgent"
+  >,
+) {
+  const currentName = current.displayName?.trim() || null;
+  const candidateName = candidate.displayName?.trim() || null;
+
+  if (current.isManagedAgent && !candidate.isManagedAgent) {
+    return currentName ?? candidateName;
+  }
+  if (candidate.isManagedAgent && !current.isManagedAgent) {
+    return candidateName ?? currentName;
+  }
+
+  if (current.isAgent && !candidate.isAgent) {
+    return currentName;
+  }
+  if (candidate.isAgent && !current.isAgent) {
+    return candidateName ?? currentName;
+  }
+
+  return currentName ?? candidateName;
+}
+
 export function mergeMentionCandidate({
   candidate,
   current,
@@ -69,12 +96,7 @@ export function mergeMentionCandidate({
   return {
     ...current,
     avatarUrl: current.avatarUrl ?? candidate.avatarUrl ?? null,
-    displayName:
-      current.isAgent && !candidate.isAgent
-        ? current.displayName
-        : candidate.isAgent && !current.isAgent
-          ? (candidate.displayName ?? current.displayName)
-          : (current.displayName ?? candidate.displayName),
+    displayName: mergeMentionCandidateDisplayName(current, candidate),
     isAgent: current.isAgent || candidate.isAgent,
     isMember: current.isMember || candidate.isMember,
     personaId: current.personaId ?? candidate.personaId,

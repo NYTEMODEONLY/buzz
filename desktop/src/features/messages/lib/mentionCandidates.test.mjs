@@ -6,6 +6,7 @@ import {
   formatTeamMention,
   mergeMentionCandidate,
   presentMentionCandidate,
+  mergeMentionCandidateDisplayName,
 } from "./mentionCandidates.ts";
 
 function persona(id, displayName, isActive = true) {
@@ -204,4 +205,23 @@ test("external presentation names win without changing mention identity or owner
   assert.equal(merged.avatarUrl, "https://example.com/alice.png");
   assert.equal(merged.pubkey, pubkey);
   assert.equal(merged.ownerPubkey, ownerPubkey);
+});
+
+test("managed agent name replaces a relay npub fallback for the same identity", () => {
+  const relayFallback = identity(
+    undefined,
+    "npub1f8gfj95s064nd3haphrld3ypae8t04jj05mgmm8vxhve9p325t3q00elya",
+  );
+  const managedAgent = identity(undefined, "MUSE", {
+    isManagedAgent: true,
+  });
+
+  assert.equal(
+    mergeMentionCandidateDisplayName(relayFallback, managedAgent),
+    "MUSE",
+  );
+  assert.equal(
+    mergeMentionCandidateDisplayName(managedAgent, relayFallback),
+    "MUSE",
+  );
 });
