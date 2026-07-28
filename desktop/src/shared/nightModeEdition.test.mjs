@@ -7,9 +7,9 @@ import {
   NIGHT_MODE_RELEASES_URL,
 } from "./nightModeEdition.ts";
 
-test("Night Mode Edition owns its attribution and update channel", () => {
-  assert.equal(NIGHT_MODE_EDITION_NAME, "Night Mode Edition");
-  assert.equal(NIGHT_MODE_EDITION_URL, "https://nytemode.com");
+test("NYTEMODE EDITION owns its attribution and update channel", () => {
+  assert.equal(NIGHT_MODE_EDITION_NAME, "NYTEMODE EDITION");
+  assert.equal(NIGHT_MODE_EDITION_URL, "https://nytemode.dev");
   assert.equal(
     NIGHT_MODE_RELEASES_URL,
     "https://github.com/NYTEMODEONLY/buzz/releases/latest",

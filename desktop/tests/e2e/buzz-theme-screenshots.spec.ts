@@ -302,7 +302,7 @@ async function expectBuzzSettingsPalette(page: Page, mode: "light" | "dark") {
   if ((await version.count()) > 0) {
     await expect(version).toHaveCSS("color", mutedColor);
     await expect(page.getByTestId("settings-night-mode-edition")).toHaveText(
-      "Night Mode Edition",
+      "NYTEMODE EDITION",
     );
   }
 }

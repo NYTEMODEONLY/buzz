@@ -1,4 +1,4 @@
-name: Release Night Mode Edition for macOS
+name: Release NYTEMODE EDITION for macOS
 
 on:
   workflow_dispatch:
@@ -121,7 +121,7 @@ jobs:
           "$MESH_ROOT/scripts/prepare-llama.sh" pinned
           "$MESH_ROOT/scripts/build-llama.sh" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15
 
-      - name: Build, sign, and notarize Night Mode Edition
+      - name: Build, sign, and notarize NYTEMODE EDITION
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
@@ -175,13 +175,13 @@ jobs:
           TAG="v$VERSION"
           gh release create "$TAG" \
             --target "$GITHUB_SHA" \
-            --title "Buzz Night Mode Edition $TAG" \
-            --notes "Signed Night Mode Edition build from $GITHUB_SHA" \
+            --title "Buzz NYTEMODE EDITION $TAG" \
+            --notes "Signed NYTEMODE EDITION build from $GITHUB_SHA" \
             2>/dev/null || true
           gh release upload "$TAG" "$DMG" --clobber
           gh release create "$UPDATE_RELEASE" \
             --prerelease \
-            --title "Buzz Night Mode Edition Auto-Update" \
+            --title "Buzz NYTEMODE EDITION Auto-Update" \
             --notes "Rolling signed updater artifacts." \
             2>/dev/null || true
           gh release upload "$UPDATE_RELEASE" "$ARCHIVE" "$SIG_PATH" --clobber
@@ -189,7 +189,7 @@ jobs:
           ARCHIVE_URL="https://github.com/NYTEMODEONLY/buzz/releases/download/$UPDATE_RELEASE/$ARCHIVE_NAME"
           jq -n \
             --arg version "$VERSION" \
-            --arg notes "Buzz Night Mode Edition $VERSION" \
+            --arg notes "Buzz NYTEMODE EDITION $VERSION" \
             --arg pub_date "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             --arg signature "$SIGNATURE" \
             --arg url "$ARCHIVE_URL" \

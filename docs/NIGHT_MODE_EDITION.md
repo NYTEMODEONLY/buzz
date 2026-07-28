@@ -1,6 +1,6 @@
-# Buzz Night Mode Edition
+# Buzz NYTEMODE EDITION
 
-Night Mode Edition is the single Buzz desktop client maintained for nytemode.
+NYTEMODE EDITION is the single Buzz desktop client maintained for nytemode.
 It follows current `block/buzz:main` while keeping a small, reviewable patch
 stack for custom product behavior.
 
@@ -10,8 +10,8 @@ stack for custom product behavior.
 - One bundle identifier and data lineage: `xyz.block.buzz.app`.
 - One deep link: `buzz:`.
 - One existing owner identity and one canonical pubkey per agent.
-- Settings always identifies the build as **Night Mode Edition** and links to
-  [nytemode.com](https://nytemode.com).
+- Settings always identifies the build as **NYTEMODE EDITION** and links to
+  [nytemode.dev](https://nytemode.dev).
 - Updates come only from signed `NYTEMODEONLY/buzz` releases.
 
 The former side-by-side Canary bundle, keyring, deep link, release channel, and
@@ -30,7 +30,7 @@ they must never be replayed into the main database or used to provision agents.
 
 Grok is detected from Zero's active runtime and shown next to Codex. The
 consumer Grok client does not currently expose a supported remaining-allowance
-reader, so Night Mode Edition reports `allowance unavailable` instead of
+reader, so NYTEMODE EDITION reports `allowance unavailable` instead of
 inventing a percentage. Provider cards are independent: one provider failing
 does not hide another provider's balance.
 
@@ -47,7 +47,7 @@ Before retaining a custom patch during an upstream sync:
 
 This is why the old custom Grok/Hermes runtime implementation is not carried
 forward: current upstream Buzz provides generic BYOH harness presets and the
-observer protocol foundation. Night Mode Edition keeps only the integration
+observer protocol foundation. NYTEMODE EDITION keeps only the integration
 needed for the actual external agents and UI.
 
 ## Verification layers

@@ -4,7 +4,7 @@
   <strong>A workspace where humans and agents build together, on a relay you own.</strong>
 </p>
 
-> **Night Mode Edition.** This fork is the single-client nytemode distribution
+> **NYTEMODE EDITION.** This fork is the single-client nytemode distribution
 > of [Block's Buzz](https://github.com/block/buzz). It follows current upstream
 > source while keeping custom provider allowance, sidebar organization,
 > external-agent, activity, branding, and release patches isolated for review.

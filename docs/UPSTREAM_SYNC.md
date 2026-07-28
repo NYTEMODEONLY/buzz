@@ -1,11 +1,11 @@
 # Upstream sync
 
-Night Mode Edition uses a reviewed integration flow. `main` is the product
+NYTEMODE EDITION uses a reviewed integration flow. `main` is the product
 branch. `block/buzz:main` is source input, never an automatic binary update.
 
 ## Branches
 
-- `main`: releasable Night Mode Edition.
+- `main`: releasable NYTEMODE EDITION.
 - `automation/upstream-sync`: disposable proposal branch created from `main`
   with current upstream merged.
 - `backup/*`: immutable rollback refs for major migrations.
@@ -29,7 +29,7 @@ exact decisions remain reviewable.
 
 ## Updater boundary
 
-The installed Night Mode Edition checks
+The installed NYTEMODE EDITION checks
 `NYTEMODEONLY/buzz` for releases. A release build requires a nytemode-owned
 Tauri updater public/private key pair and Apple signing/notarization
 credentials. Block's OIDC signing role, updater key, and release endpoint are
@@ -39,7 +39,7 @@ The release manifest must name artifacts produced from the tagged `main` SHA.
 Keep the previous signed installer until the new version has completed the
 N to N+1 update test and agent-identity verification.
 
-The `Release Night Mode Edition for macOS` workflow enforces this boundary.
+The `Release NYTEMODE EDITION for macOS` workflow enforces this boundary.
 It intentionally fails before building unless all fork-owned updater and Apple
 signing secrets are configured. Never weaken that preflight to produce an
 untrusted public release.
