@@ -1,4 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import * as React from "react";
+import {
+  useQueries,
+  useQuery,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 
 import {
@@ -16,10 +21,13 @@ import {
   providerUsageErrorMessage,
   providerUsageTone,
 } from "@/features/provider-usage/providerUsageDisplay.mjs";
-import {
-  resolveProviderUsagePreference,
-  useProviderUsagePreference,
-} from "@/features/provider-usage/providerUsagePreference";
+import { detectActiveProviderUsageIds } from "@/features/provider-usage/providerUsageProviders.mjs";
+import { useManagedAgentsQuery } from "@/features/agents/hooks";
+import type {
+  ProviderUsageCapability,
+  ProviderUsageId,
+  ProviderUsageSnapshot,
+} from "@/shared/api/tauriProviderUsage";
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
@@ -121,62 +129,77 @@ export function SidebarProviderUsageIndicator({
 }: {
   placement?: "chrome" | "sidebar";
 }) {
-  const preference = useProviderUsagePreference();
+  const agentsQuery = useManagedAgentsQuery();
   const capabilitiesQuery = useQuery({
     queryKey: ["provider-usage-capabilities"],
     queryFn: listProviderUsageCapabilities,
     staleTime: Number.POSITIVE_INFINITY,
   });
-  const provider = resolveProviderUsagePreference(
-    preference,
-    capabilitiesQuery.data,
+  const capabilities = capabilitiesQuery.data ?? [];
+  const activeProviders = React.useMemo(
+    () => detectActiveProviderUsageIds(agentsQuery.data ?? [], capabilities),
+    [agentsQuery.data, capabilities],
   );
-  const supported = provider === "codex";
-  const query = useQuery({
-    queryKey: ["provider-usage", provider],
-    queryFn: () => getProviderUsage(provider),
-    enabled: supported,
-    staleTime: FIVE_MINUTES,
-    refetchInterval: FIVE_MINUTES,
-    refetchIntervalInBackground: false,
-    refetchOnWindowFocus: true,
-    retry: 1,
+  const capabilityByProvider = React.useMemo(
+    () =>
+      new Map(
+        capabilities.map((capability) => [capability.id, capability] as const),
+      ),
+    [capabilities],
+  );
+  const providerQueries = useQueries({
+    queries: activeProviders.map((provider) => ({
+      queryKey: ["provider-usage", provider],
+      queryFn: () => getProviderUsage(provider),
+      enabled: capabilityByProvider.get(provider)?.availability === "available",
+      staleTime: FIVE_MINUTES,
+      refetchInterval: FIVE_MINUTES,
+      refetchIntervalInBackground: false,
+      refetchOnWindowFocus: true,
+      retry: 1,
+    })),
   });
   const compact = placement === "chrome";
 
-  const usage = query.data;
-  const constrainingWindow = usage?.windows.reduce((lowest, window) =>
-    window.remainingPercent < lowest.remainingPercent ? window : lowest,
-  );
-  const remainingPercent = constrainingWindow?.remainingPercent;
-  const tone =
-    remainingPercent === undefined
-      ? undefined
-      : providerUsageTone(remainingPercent);
-  const productLabel =
-    provider === "codex" ? "Codex" : provider === "claude" ? "Claude" : "Grok";
-  const planLabel =
-    usage?.planType === undefined || usage.planType === null
-      ? productLabel
-      : `${productLabel} ${usage.planType.charAt(0).toUpperCase()}${usage.planType.slice(1)}`;
-  const unsupportedMessage = supported
-    ? null
-    : `${productLabel} personal allowance is not supported yet`;
-  const errorMessage = unsupportedMessage
-    ? unsupportedMessage
-    : query.isError
-      ? providerUsageErrorMessage(query.error)
-      : null;
+  const rows = activeProviders.map((provider, index) => {
+    const capability = capabilityByProvider.get(provider);
+    const query = providerQueries[index];
+    const usage = query?.data;
+    const constrainingWindow = usage?.windows.reduce((lowest, window) =>
+      window.remainingPercent < lowest.remainingPercent ? window : lowest,
+    );
+    const productLabel = providerLabel(provider);
+    const supported = capability?.availability === "available";
+    const errorMessage = supported
+      ? query?.isError
+        ? providerUsageErrorMessage(query.error)
+        : null
+      : (capability?.detail ??
+        `${productLabel} does not expose a supported allowance reader`);
+    return {
+      capability,
+      constrainingWindow,
+      errorMessage,
+      productLabel,
+      provider,
+      query,
+      supported,
+      usage,
+    };
+  });
+  const ariaSummary = rows
+    .map((row) =>
+      row.constrainingWindow
+        ? `${row.productLabel}: ${row.constrainingWindow.remainingPercent}% remaining`
+        : `${row.productLabel}: allowance unavailable`,
+    )
+    .join("; ");
 
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
-          aria-label={
-            remainingPercent !== undefined
-              ? `${planLabel}: ${remainingPercent}% remaining`
-              : (errorMessage ?? `Loading ${productLabel} allowance`)
-          }
+          aria-label={ariaSummary}
           className={cn(
             "flex items-center gap-2 rounded-lg text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-sidebar-ring",
             compact
@@ -186,12 +209,22 @@ export function SidebarProviderUsageIndicator({
           data-testid="sidebar-provider-usage"
           type="button"
         >
-          <UsageRing
-            compact={compact}
-            isLoading={query.isPending && supported}
-            label={productLabel}
-            remainingPercent={remainingPercent}
-          />
+          <span className="flex shrink-0 items-center -space-x-1">
+            {rows.map((row) => (
+              <span
+                className="rounded-full bg-sidebar"
+                data-testid={`provider-usage-${row.provider}`}
+                key={row.provider}
+              >
+                <UsageRing
+                  compact={compact}
+                  isLoading={Boolean(row.query?.isPending && row.supported)}
+                  label={row.productLabel}
+                  remainingPercent={row.constrainingWindow?.remainingPercent}
+                />
+              </span>
+            ))}
+          </span>
           <span
             className={cn(
               "min-w-0 flex-1",
@@ -200,25 +233,24 @@ export function SidebarProviderUsageIndicator({
           >
             <span className="block truncate text-xs font-medium">
               {compact
-                ? remainingPercent !== undefined
-                  ? `${remainingPercent}% left`
-                  : errorMessage
-                    ? "Unavailable"
-                    : "Checking…"
-                : (errorMessage ?? planLabel)}
+                ? rows
+                    .map((row) =>
+                      row.constrainingWindow
+                        ? `${shortProviderLabel(row.provider)} ${row.constrainingWindow.remainingPercent}%`
+                        : `${shortProviderLabel(row.provider)} —`,
+                    )
+                    .join(" · ")
+                : "AI provider allowance"}
             </span>
             {!compact ? (
-              <span
-                className={cn(
-                  "block truncate text-sm font-semibold tabular-nums",
-                  tone ? toneClasses[tone].text : "text-muted-foreground",
-                )}
-              >
-                {remainingPercent !== undefined
-                  ? `${remainingPercent}% left`
-                  : supported
-                    ? "Checking allowance…"
-                    : "Unavailable"}
+              <span className="block truncate text-sm font-semibold tabular-nums text-muted-foreground">
+                {rows
+                  .map((row) =>
+                    row.constrainingWindow
+                      ? `${row.productLabel} ${row.constrainingWindow.remainingPercent}%`
+                      : `${row.productLabel} —`,
+                  )
+                  .join(" · ")}
               </span>
             ) : null}
           </span>
@@ -227,125 +259,148 @@ export function SidebarProviderUsageIndicator({
 
       <PopoverContent
         align="end"
-        className="w-80"
+        className="w-96"
         side={compact ? "bottom" : "right"}
         sideOffset={10}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="font-semibold">{planLabel}</p>
-            <p className="text-xs text-muted-foreground">
-              Personal subscription allowance
-            </p>
-          </div>
-          {supported ? (
-            <Button
-              aria-label={`Refresh ${productLabel} allowance`}
-              disabled={query.isFetching}
-              onClick={() => void query.refetch()}
-              size="icon-xs"
-              type="button"
-              variant="ghost"
-            >
-              <RefreshCw
-                aria-hidden="true"
-                className={cn(query.isFetching && "animate-spin")}
-              />
-            </Button>
-          ) : null}
+        <div>
+          <p className="font-semibold">AI provider allowance</p>
+          <p className="text-xs text-muted-foreground">
+            All providers used by active agents
+          </p>
         </div>
-
-        {usage && constrainingWindow ? (
-          <div className="mt-4 space-y-4">
-            <div>
-              <div className="mb-1.5 flex items-baseline justify-between">
-                <span className="text-2xl font-semibold tabular-nums">
-                  {constrainingWindow.remainingPercent}%
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {constrainingWindow.usedPercent}% used
-                </span>
-              </div>
-              <Progress
-                aria-label={`${constrainingWindow.remainingPercent}% remaining`}
-                className={cn(
-                  "h-2 bg-muted",
-                  tone && toneClasses[tone].progress,
-                )}
-                value={constrainingWindow.remainingPercent}
-              />
-              <p className="mt-2 text-xs text-muted-foreground">
-                {constrainingWindow.label} · Resets{" "}
-                {formatUsageReset(constrainingWindow.resetsAt)}
-              </p>
-            </div>
-
-            {usage.windows.length > 1 ? (
-              <dl className="space-y-2 rounded-lg bg-muted/45 p-3 text-xs">
-                {usage.windows.map((window) => (
-                  <div
-                    className="flex items-start justify-between gap-3"
-                    key={window.id}
-                  >
-                    <dt className="text-muted-foreground">{window.label}</dt>
-                    <dd className="text-right font-medium tabular-nums">
-                      {window.remainingPercent}% left
-                      <span className="block font-normal text-muted-foreground">
-                        {formatUsageReset(window.resetsAt)}
-                      </span>
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            ) : null}
-
-            <dl className="grid grid-cols-2 gap-3 rounded-lg bg-muted/45 p-3 text-xs">
-              <div>
-                <dt className="text-muted-foreground">Latest daily usage</dt>
-                <dd className="mt-0.5 font-medium tabular-nums">
-                  {formatTokenCount(usage.totals.latestDailyTokens)} tokens
-                </dd>
-                {usage.totals.latestDailyDate ? (
-                  <dd className="text-muted-foreground">
-                    {usage.totals.latestDailyDate}
-                  </dd>
-                ) : null}
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Lifetime usage</dt>
-                <dd className="mt-0.5 font-medium tabular-nums">
-                  {formatTokenCount(usage.totals.lifetimeTokens)} tokens
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Credit balance</dt>
-                <dd className="mt-0.5 font-medium tabular-nums">
-                  {usage.totals.creditBalance ?? "—"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Reset credits</dt>
-                <dd className="mt-0.5 font-medium tabular-nums">
-                  {usage.totals.resetCreditsAvailable ?? "—"}
-                </dd>
-              </div>
-            </dl>
-
-            <p className="text-2xs text-muted-foreground">
-              Updated{" "}
-              {new Date(usage.fetchedAt * 1000).toLocaleTimeString([], {
-                hour: "numeric",
-                minute: "2-digit",
-              })}
-              {query.isError ? " · refresh failed; showing last result" : ""}
-            </p>
-          </div>
-        ) : (
-          <div className="mt-4 rounded-lg bg-muted/45 p-3 text-sm text-muted-foreground">
-            {errorMessage ?? `Reading ${productLabel} allowance…`}
-          </div>
-        )}
+        <div className="mt-4 space-y-3">
+          {rows.map((row) => (
+            <ProviderAllowanceCard key={row.provider} {...row} />
+          ))}
+        </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function providerLabel(provider: ProviderUsageId): string {
+  return provider === "codex"
+    ? "Codex"
+    : provider === "claude"
+      ? "Claude"
+      : "Grok";
+}
+
+function shortProviderLabel(provider: ProviderUsageId): string {
+  return provider === "codex" ? "OAI" : provider === "claude" ? "ANT" : "XAI";
+}
+
+function ProviderAllowanceCard({
+  capability,
+  constrainingWindow,
+  errorMessage,
+  productLabel,
+  provider,
+  query,
+  supported,
+  usage,
+}: {
+  capability?: ProviderUsageCapability;
+  constrainingWindow?: ProviderUsageSnapshot["windows"][number];
+  errorMessage: string | null;
+  productLabel: string;
+  provider: ProviderUsageId;
+  query: UseQueryResult<ProviderUsageSnapshot, Error> | undefined;
+  supported: boolean;
+  usage?: ProviderUsageSnapshot;
+}) {
+  const tone = constrainingWindow
+    ? providerUsageTone(constrainingWindow.remainingPercent)
+    : undefined;
+  const planLabel = usage?.planType
+    ? `${productLabel} ${usage.planType.charAt(0).toUpperCase()}${usage.planType.slice(1)}`
+    : productLabel;
+
+  return (
+    <section
+      className="rounded-lg border border-border/70 p-3"
+      data-testid={`provider-allowance-card-${provider}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold">{planLabel}</p>
+          <p className="text-2xs text-muted-foreground">
+            {supported
+              ? "Personal subscription allowance"
+              : (capability?.detail ?? "Allowance reader unavailable")}
+          </p>
+        </div>
+        {supported ? (
+          <Button
+            aria-label={`Refresh ${productLabel} allowance`}
+            disabled={query?.isFetching}
+            onClick={() => void query?.refetch()}
+            size="icon-xs"
+            type="button"
+            variant="ghost"
+          >
+            <RefreshCw
+              aria-hidden="true"
+              className={cn(query?.isFetching && "animate-spin")}
+            />
+          </Button>
+        ) : null}
+      </div>
+      {usage && constrainingWindow ? (
+        <div className="mt-3 space-y-3">
+          <div>
+            <div className="mb-1.5 flex items-baseline justify-between">
+              <span className="text-xl font-semibold tabular-nums">
+                {constrainingWindow.remainingPercent}% left
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {constrainingWindow.usedPercent}% used
+              </span>
+            </div>
+            <Progress
+              aria-label={`${productLabel}: ${constrainingWindow.remainingPercent}% remaining`}
+              className={cn("h-2 bg-muted", tone && toneClasses[tone].progress)}
+              value={constrainingWindow.remainingPercent}
+            />
+            <p className="mt-2 text-2xs text-muted-foreground">
+              {constrainingWindow.label} · Resets{" "}
+              {formatUsageReset(constrainingWindow.resetsAt)}
+            </p>
+          </div>
+          {usage.windows.length > 1 ? (
+            <dl className="space-y-1.5 rounded-md bg-muted/45 p-2 text-2xs">
+              {usage.windows.map((window) => (
+                <div
+                  className="flex items-start justify-between gap-3"
+                  key={window.id}
+                >
+                  <dt className="text-muted-foreground">{window.label}</dt>
+                  <dd className="text-right font-medium tabular-nums">
+                    {window.remainingPercent}% left ·{" "}
+                    {formatUsageReset(window.resetsAt)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+          <p className="text-2xs text-muted-foreground">
+            Credits {usage.totals.creditBalance ?? "—"} · Daily{" "}
+            {formatTokenCount(usage.totals.latestDailyTokens)} tokens · Updated{" "}
+            {new Date(usage.fetchedAt * 1000).toLocaleTimeString([], {
+              hour: "numeric",
+              minute: "2-digit",
+            })}
+          </p>
+        </div>
+      ) : (
+        <div className="mt-3 rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
+          {errorMessage ??
+            (supported
+              ? `Reading ${productLabel} allowance…`
+              : "Remaining percentage and balance are not reported by this provider.")}
+        </div>
+      )}
+    </section>
   );
 }

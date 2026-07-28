@@ -77,6 +77,8 @@ type MockManagedAgentSeed = {
   personaId?: string | null;
   /** Harness/runtime id pin; `null` = inherit from persona (native default). */
   runtime?: string | null;
+  model?: string | null;
+  provider?: string | null;
   status?: RawManagedAgent["status"];
   channelNames?: string[];
   channelIds?: string[];
@@ -2007,6 +2009,15 @@ function buildMockConfigSurface(pubkey: string): {
 function buildSeededManagedAgent(seed: MockManagedAgentSeed): MockManagedAgent {
   const now = new Date().toISOString();
   const status = seed.status ?? "stopped";
+  const runtime = seed.runtime ?? null;
+  const agentCommand =
+    runtime === "grok"
+      ? "grok"
+      : runtime === "codex"
+        ? "codex-acp"
+        : runtime === "claude"
+          ? "claude-agent-acp"
+          : "goose";
 
   return {
     pubkey: seed.pubkey,
@@ -2014,10 +2025,10 @@ function buildSeededManagedAgent(seed: MockManagedAgentSeed): MockManagedAgent {
     persona_id: seed.personaId ?? null,
     // Native serde always emits this key (`null` when unpinned) — the bridge
     // must mirror the wire shape, not omit the key.
-    runtime: seed.runtime ?? null,
+    runtime,
     relay_url: DEFAULT_RELAY_WS_URL,
     acp_command: "buzz-acp",
-    agent_command: "goose",
+    agent_command: agentCommand,
     agent_args: ["acp"],
     mcp_command: "",
     turn_timeout_seconds: 320,
@@ -2026,7 +2037,8 @@ function buildSeededManagedAgent(seed: MockManagedAgentSeed): MockManagedAgent {
     parallelism: 1,
     system_prompt: null,
     avatar_url: seed.avatarUrl ?? null,
-    model: null,
+    model: seed.model ?? null,
+    provider: seed.provider ?? null,
     env_vars: {},
     status,
     pid: status === "running" ? 42000 + mockManagedAgents.length : null,
