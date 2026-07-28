@@ -18,4 +18,3 @@ export function detectActiveProviderUsageIds(
   agents?: ProviderAgent[],
   capabilities?: ProviderUsageCapability[],
 ): ProviderUsageId[];
-
