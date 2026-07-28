@@ -9,7 +9,8 @@
 > source while keeping custom provider allowance, sidebar organization,
 > external-agent, activity, branding, and release patches isolated for review.
 > See [the edition contract](docs/NIGHT_MODE_EDITION.md),
-> [upstream sync procedure](docs/UPSTREAM_SYNC.md), and
+> [upstream sync procedure](docs/UPSTREAM_SYNC.md),
+> [release procedure](docs/NIGHT_MODE_RELEASING.md), and
 > [fork notice](FORK_NOTICE.md).
 
 <p align="center">

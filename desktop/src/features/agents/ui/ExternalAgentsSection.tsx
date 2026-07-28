@@ -11,8 +11,10 @@ import {
   getSharedChannelIds,
   relayAgentIsSharedWithUser,
 } from "@/features/agents/lib/agentAutocompleteEligibility";
+import { withoutArchivedAgents } from "@/features/agents/lib/managedAgentIdentitySafety";
 import { useChannelsQuery } from "@/features/channels/hooks";
 import { useCommunities } from "@/features/communities/useCommunities";
+import { useArchivedIdentitiesQuery } from "@/features/identity-archive/hooks";
 import { usePresenceQuery } from "@/features/presence/hooks";
 import { PresenceBadge } from "@/features/presence/ui/PresenceBadge";
 import { useUsersBatchQuery } from "@/features/profile/hooks";
@@ -28,6 +30,7 @@ import {
 } from "./ExternalAgentPresentationDialog";
 
 type ExternalAgentCard = ExternalAgentEditorTarget & {
+  isOwnerManaged: boolean;
   ownerPubkey: string | null;
 };
 
@@ -46,6 +49,7 @@ export function ExternalAgentsSection({
 }) {
   const identityQuery = useIdentityQuery();
   const channelsQuery = useChannelsQuery();
+  const archivedIdentitiesQuery = useArchivedIdentitiesQuery();
   const { activeCommunity } = useCommunities();
   const [agentToCustomize, setAgentToCustomize] =
     React.useState<ExternalAgentCard | null>(null);
@@ -69,16 +73,31 @@ export function ExternalAgentsSection({
       getJoinedDmPeerPubkeys(channelsQuery.data, identityQuery.data?.pubkey),
     [channelsQuery.data, identityQuery.data?.pubkey],
   );
+  const archivedPubkeys = React.useMemo(
+    () =>
+      new Set(
+        (archivedIdentitiesQuery.data?.archived ?? []).map(normalizePubkey),
+      ),
+    [archivedIdentitiesQuery.data?.archived],
+  );
   const relevantRelayAgents = React.useMemo(
     () =>
-      relayAgents.filter((agent) =>
-        relayAgentIsSharedWithUser(
-          agent,
-          sharedChannelIds,
-          identityQuery.data?.pubkey,
+      withoutArchivedAgents(
+        relayAgents.filter((agent) =>
+          relayAgentIsSharedWithUser(
+            agent,
+            sharedChannelIds,
+            identityQuery.data?.pubkey,
+          ),
         ),
+        archivedPubkeys,
       ),
-    [identityQuery.data?.pubkey, relayAgents, sharedChannelIds],
+    [
+      archivedPubkeys,
+      identityQuery.data?.pubkey,
+      relayAgents,
+      sharedChannelIds,
+    ],
   );
   const candidatePubkeys = React.useMemo(() => {
     const pubkeys = new Set(dmPeerPubkeys);
@@ -86,9 +105,16 @@ export function ExternalAgentsSection({
       pubkeys.add(normalizePubkey(agent.pubkey));
     }
     return [...pubkeys].filter(
-      (pubkey) => !normalizedManagedPubkeys.has(pubkey),
+      (pubkey) =>
+        !normalizedManagedPubkeys.has(pubkey) &&
+        !archivedPubkeys.has(normalizePubkey(pubkey)),
     );
-  }, [dmPeerPubkeys, normalizedManagedPubkeys, relevantRelayAgents]);
+  }, [
+    archivedPubkeys,
+    dmPeerPubkeys,
+    normalizedManagedPubkeys,
+    relevantRelayAgents,
+  ]);
   const profilesQuery = useUsersBatchQuery(candidatePubkeys, {
     enabled: candidatePubkeys.length > 0,
   });
@@ -107,26 +133,50 @@ export function ExternalAgentsSection({
     const cards: ExternalAgentCard[] = [];
     for (const pubkey of candidatePubkeys) {
       const profile = profilesQuery.data?.profiles[pubkey];
-      if (profile?.isAgent !== true) continue;
       const relayAgent = relayAgentsByPubkey.get(pubkey);
+      // A live owner-authored managed declaration is identity authority even
+      // when the optional kind:0/kind:10100 presentation profile is absent.
+      if (profile?.isAgent !== true && !relayAgent?.isOwnerManaged) continue;
       cards.push({
         pubkey,
         name:
-          profile.displayName?.trim() ||
-          profile.name?.trim() ||
+          profile?.displayName?.trim() ||
+          profile?.name?.trim() ||
           relayAgent?.name.trim() ||
           "External agent",
-        avatarUrl: profile.avatarUrl,
+        avatarUrl: profile?.avatarUrl ?? null,
         agentType: relayAgent?.agentType ?? null,
-        ownerPubkey: profile.ownerPubkey,
+        isOwnerManaged: relayAgent?.isOwnerManaged === true,
+        ownerPubkey:
+          profile?.ownerPubkey ??
+          (relayAgent?.isOwnerManaged
+            ? (identityQuery.data?.pubkey ?? null)
+            : null),
       });
     }
     return cards.sort((left, right) => left.name.localeCompare(right.name));
-  }, [candidatePubkeys, profilesQuery.data?.profiles, relayAgentsByPubkey]);
+  }, [
+    candidatePubkeys,
+    identityQuery.data?.pubkey,
+    profilesQuery.data?.profiles,
+    relayAgentsByPubkey,
+  ]);
   const presenceQuery = usePresenceQuery(
     externalAgents.map((agent) => agent.pubkey),
     { enabled: externalAgents.length > 0 },
   );
+
+  if (archivedIdentitiesQuery.isPending) return null;
+  if (archivedIdentitiesQuery.isError) {
+    return (
+      <p
+        className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        data-testid="external-agents-archive-error"
+      >
+        External agents are hidden until archived identities can be verified.
+      </p>
+    );
+  }
 
   if (
     (isLoading || channelsQuery.isLoading || profilesQuery.isLoading) &&
@@ -183,11 +233,17 @@ export function ExternalAgentsSection({
                 dataTestId={`external-agent-card-${agent.pubkey}`}
                 key={agent.pubkey}
                 label={agent.name}
-                modelLabel="Hosted externally"
+                modelLabel={
+                  agent.isOwnerManaged
+                    ? "Managed elsewhere"
+                    : "Hosted externally"
+                }
                 onClick={() => onOpenAgentProfile(agent.pubkey)}
                 statusBadge={
                   <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                    <Badge variant="info">EXTERNAL</Badge>
+                    <Badge variant="info">
+                      {agent.isOwnerManaged ? "MANAGED ELSEWHERE" : "EXTERNAL"}
+                    </Badge>
                     {runtimeLabel ? (
                       <Badge variant="secondary">{runtimeLabel}</Badge>
                     ) : null}

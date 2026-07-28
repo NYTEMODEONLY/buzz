@@ -32,4 +32,9 @@ if [ "$head_sha" != "$tag_sha" ]; then
   exit 1
 fi
 
+if [ -n "${GITHUB_SHA:-}" ] && [ "$head_sha" != "$GITHUB_SHA" ]; then
+  echo "::error::HEAD ${head_sha} does not match workflow source ${GITHUB_SHA}" >&2
+  exit 1
+fi
+
 echo "Verified ${expected_ref} at ${head_sha}"

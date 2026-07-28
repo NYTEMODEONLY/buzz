@@ -4,6 +4,10 @@ NYTEMODE EDITION is the single Buzz desktop client maintained for nytemode.
 It follows current `block/buzz:main` while keeping a small, reviewable patch
 stack for custom product behavior.
 
+The current reviewed upstream baseline is Buzz `v0.5.0` at
+`4a977c588a540be38bd8ddb268cd24437bac8165`. See the
+[0.5.0 integration audit](NIGHT_MODE_0.5.0_AUDIT.md).
+
 ## Product contract
 
 - One installed app: `/Applications/Buzz.app`.
@@ -88,6 +92,13 @@ This is why the old custom Grok/Hermes runtime implementation is not carried
 forward: current upstream Buzz provides generic BYOH harness presets and the
 observer protocol foundation. NYTEMODE EDITION keeps only the integration
 needed for the actual external agents and UI.
+
+The official Grok preset remains the source of truth:
+`grok agent --always-approve stdio`. Existing agents may retain an explicit
+binary-path or model override through the native BYOH descriptor. The Hermes
+preset uses the standard installer entry point, `hermes acp`; ALICE remains
+the existing external VPS-hosted identity and must never be replaced with a
+new local managed agent.
 
 ## Verification layers
 

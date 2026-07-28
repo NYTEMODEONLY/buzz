@@ -213,3 +213,87 @@ test("external cards without verified ownership are view-only", async ({
     page.getByTestId(`edit-external-agent-${alicePubkey}`),
   ).toHaveCount(0);
 });
+
+test("owner-only canonical identity suppresses a running same-persona sibling", async ({
+  page,
+}) => {
+  const canonicalPubkey = "1".repeat(64);
+  const siblingPubkey = "2".repeat(64);
+  const personaId = "persona:zero";
+  await installMockBridge(page, {
+    replaceRelayAgents: true,
+    personas: [
+      {
+        id: personaId,
+        displayName: "ZERO",
+        systemPrompt: "Canonical coding agent",
+      },
+    ],
+    managedAgents: [
+      {
+        pubkey: siblingPubkey,
+        name: "ZERO",
+        personaId,
+        status: "running",
+      },
+    ],
+    relayAgents: [
+      {
+        pubkey: canonicalPubkey,
+        name: "ZERO",
+        isOwnerManaged: true,
+        ownerManagedPersonaId: personaId,
+        respondTo: "owner-only",
+        status: "offline",
+      },
+    ],
+  });
+  await gotoAgents(page);
+
+  const canonicalCard = page.getByTestId(
+    `external-agent-card-${canonicalPubkey}`,
+  );
+  await expect(canonicalCard).toBeVisible();
+  await expect(canonicalCard).toContainText("MANAGED ELSEWHERE");
+  await expect(page.getByTestId(`managed-agent-${siblingPubkey}`)).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByTestId(`persona-runtime-start-${personaId}`),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Stop running agents" }),
+  ).toHaveCount(0);
+});
+
+test("archived external identity stays out of agent discovery", async ({
+  page,
+}) => {
+  const archivedPubkey = "4".repeat(64);
+  await installMockBridge(page, {
+    archivedIdentities: [archivedPubkey],
+    replaceRelayAgents: true,
+    relayAgents: [
+      {
+        pubkey: archivedPubkey,
+        name: "Retired agent",
+        agentType: "hermes-acp",
+        channelNames: ["general"],
+        respondTo: "anyone",
+        status: "offline",
+      },
+    ],
+    searchProfiles: [
+      {
+        pubkey: archivedPubkey,
+        displayName: "Retired agent",
+        isAgent: true,
+      },
+    ],
+  });
+  await gotoAgents(page);
+
+  await expect(
+    page.getByTestId(`external-agent-card-${archivedPubkey}`),
+  ).toHaveCount(0);
+});

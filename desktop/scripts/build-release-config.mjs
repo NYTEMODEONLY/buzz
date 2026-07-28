@@ -26,6 +26,9 @@ const outputConfigPath = resolve(
 
 const updaterPubkey = process.env.BUZZ_UPDATER_PUBLIC_KEY;
 const updaterEndpoint = process.env.BUZZ_UPDATER_ENDPOINT;
+const releaseDistribution = process.env.BUZZ_RELEASE_DISTRIBUTION;
+const nightModeUpdaterEndpoint =
+  "https://github.com/NYTEMODEONLY/buzz/releases/download/buzz-night-mode-latest/latest.json";
 
 const missing = [];
 if (!updaterPubkey) missing.push("BUZZ_UPDATER_PUBLIC_KEY");
@@ -33,6 +36,20 @@ if (!updaterEndpoint) missing.push("BUZZ_UPDATER_ENDPOINT");
 if (missing.length > 0) {
   console.error(
     `Error: required environment variable(s) missing: ${missing.join(", ")}`,
+  );
+  process.exit(1);
+}
+
+if (releaseDistribution === "night-mode") {
+  if (updaterEndpoint !== nightModeUpdaterEndpoint) {
+    console.error(
+      `Error: NYTEMODE EDITION updater endpoint must be ${nightModeUpdaterEndpoint}`,
+    );
+    process.exit(1);
+  }
+} else if (releaseDistribution) {
+  console.error(
+    `Error: unsupported BUZZ_RELEASE_DISTRIBUTION "${releaseDistribution}"`,
   );
   process.exit(1);
 }

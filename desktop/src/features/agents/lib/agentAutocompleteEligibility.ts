@@ -47,13 +47,23 @@ export function getJoinedDmPeerPubkeys(
 }
 
 export function relayAgentIsSharedWithUser(
-  agent: Pick<RelayAgent, "channelIds" | "respondTo" | "respondToAllowlist">,
+  agent: Pick<
+    RelayAgent,
+    "channelIds" | "isOwnerManaged" | "respondTo" | "respondToAllowlist"
+  >,
   sharedChannelIds: ReadonlySet<string>,
   currentPubkey?: string | null,
 ) {
   const normalizedCurrentPubkey = currentPubkey
     ? normalizePubkey(currentPubkey)
     : null;
+
+  // list_relay_agents sets this only from the current owner's exact,
+  // owner-authored kind:30177 declaration. Owner-only agents must remain
+  // visible to that owner even when they share no channel yet.
+  if (agent.isOwnerManaged) {
+    return true;
+  }
 
   if (agent.respondTo === "allowlist" && normalizedCurrentPubkey) {
     return agent.respondToAllowlist

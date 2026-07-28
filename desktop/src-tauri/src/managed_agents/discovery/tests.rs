@@ -273,6 +273,17 @@ fn preset_entry_without_underlying_cli_stays_simple() {
     assert!(entry.underlying_cli_path.is_none());
 }
 
+#[test]
+fn hermes_preset_uses_the_standard_install_launcher() {
+    let preset = super::preset_harness_definitions()
+        .into_iter()
+        .find(|definition| definition.id == "hermes")
+        .expect("Hermes preset");
+
+    assert_eq!(preset.command, "hermes");
+    assert_eq!(preset.args, ["acp"]);
+}
+
 fn persona_with_runtime(id: &str, runtime: Option<&str>) -> crate::managed_agents::AgentDefinition {
     crate::managed_agents::AgentDefinition {
         id: id.to_string(),

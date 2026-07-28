@@ -288,6 +288,10 @@ export type RelayMember = {
 export type RelayAgent = {
   pubkey: string;
   name: string;
+  /** Relay-backed ownership by the current Buzz identity. */
+  isOwnerManaged?: boolean;
+  /** Persona coordinate from the owner's exact managed-agent declaration. */
+  ownerManagedPersonaId?: string | null;
   agentType: string;
   channels: string[];
   channelIds: string[];

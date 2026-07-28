@@ -142,6 +142,21 @@ test("relayAgentIsSharedWithUser: accepts allowlist agents for the current user"
   );
 });
 
+test("relayAgentIsSharedWithUser: accepts exact owner-managed owner-only agents", () => {
+  assert.equal(
+    relayAgentIsSharedWithUser(
+      makeAgent({
+        isOwnerManaged: true,
+        respondTo: "owner-only",
+        channelIds: [],
+      }),
+      new Set(),
+      CURRENT_PUBKEY,
+    ),
+    true,
+  );
+});
+
 test("getMentionableAgentPubkeys: keeps managed agents and shared relay agents", () => {
   const result = getMentionableAgentPubkeys({
     managedAgentPubkeys: [PUB_A],

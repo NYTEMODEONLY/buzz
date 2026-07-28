@@ -25,10 +25,10 @@ import { removeChannelMember } from "@/shared/api/tauri";
 import { normalizePubkey } from "@/shared/lib/pubkey";
 import {
   deleteManagedAgentWithRules,
-  isManagedAgentActive,
   startManagedAgentWithRules,
   stopManagedAgentWithRules,
 } from "../lib/managedAgentControlActions";
+import { activeAuthorizedManagedAgents } from "../lib/managedAgentIdentitySafety";
 import { clearActiveTurnsForAgentOnStop } from "../managedAgentRuntimeHooks";
 import {
   availableRuntimesForStart,
@@ -367,9 +367,11 @@ export function useManagedAgentActions() {
     return true;
   }
 
-  async function handleBulkStopRunning() {
+  async function handleBulkStopRunning(
+    authorizedAgents: readonly ManagedAgent[],
+  ) {
     await runBulkAction(
-      managedAgents.filter((a) => isManagedAgentActive(a)),
+      activeAuthorizedManagedAgents(authorizedAgents),
       "Stop",
       "stop",
       async (a) => {

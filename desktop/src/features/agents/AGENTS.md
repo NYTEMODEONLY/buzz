@@ -106,6 +106,19 @@ with a TypeScript lookup table or an id comparison in a component.
    Edit. In Edit,
    selecting Custom command keeps its required command field beside the harness
    picker rather than hiding it in Advanced.
+10. **Managed identity authority is exact-pubkey and relay-backed.** A current
+   owner's kind `30177` declaration identifies the canonical agent across Buzz
+   installations even when this install lacks its key or its kind `10100`
+   profile is missing. Never infer replacement authority from an empty local
+   registry, isolated keyring, display-name match, pending/error relay query,
+   or unavailable archive snapshot. Owner-only canonical agents remain visible
+   to their owner as `Managed elsewhere`; same-persona local siblings and
+   persona launch controls stay withheld until owner declarations resolve, and
+   bulk runtime controls may consume only that identity-safe subset. Honor only
+   exact owner-authored coordinate tombstones, suppress archived identities
+   from forward-looking external discovery, and allow a later live declaration
+   to restore the same pubkey. External hosts retain their runtime, memory,
+   provider, credentials, and skills.
 
 ## The tests that enforce this
 
@@ -123,6 +136,11 @@ with a TypeScript lookup table or an id comparison in a component.
 - `desktop/tests/e2e/onboarding-agent-defaults.spec.ts` — onboarding behavior
   acceptance coverage for readiness, failure states, defaults, navigation,
   successful-empty vs failed optional-model discovery, and persistence races.
+- `lib/managedAgentIdentitySafety.test.mjs` — canonical same-persona
+  suppression, fail-closed persona controls, archive filtering, and
+  authorized-only bulk targets.
+- `lib/agentAutocompleteEligibility.test.mjs` — owner-only canonical agent
+  visibility and relay-agent mention eligibility.
 - Rust: `runtime_metadata_env_vars` tests pin spawn-time key application.
 
 ## Keep this file true

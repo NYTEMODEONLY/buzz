@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version without the v prefix"
+        description: "Version from the selected night-mode-vX.Y.Z tag"
         required: true
         type: string
 
@@ -22,12 +22,14 @@ jobs:
     timeout-minutes: 90
     env:
       VERSION: ${{ inputs.version }}
+      RELEASE_TAG: night-mode-v${{ inputs.version }}
       UPDATE_RELEASE: buzz-night-mode-latest
       UPDATE_ENDPOINT: https://github.com/NYTEMODEONLY/buzz/releases/download/buzz-night-mode-latest/latest.json
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Validate release source and credentials
         env:
@@ -42,14 +44,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
-            echo "::error::Night Mode releases must run from main"
-            exit 1
-          }
-          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || {
-            echo "::error::Version must be semver"
-            exit 1
-          }
+          scripts/verify-release-ref.sh night-mode-v "$VERSION"
           for name in \
             APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_ID APPLE_PASSWORD \
             APPLE_SIGNING_IDENTITY APPLE_TEAM_ID BUZZ_UPDATER_PUBLIC_KEY \
@@ -63,7 +58,7 @@ jobs:
 
       - uses: cashapp/activate-hermit@cea9af7913204a965fd488637a8d1811bba2e616 # v1
 
-      - uses: apple-actions/import-codesign-certs@v3
+      - uses: apple-actions/import-codesign-certs@63fff01cd422d4b7b855d40ca1e9d34d2de9427d # v3
         with:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
           p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -71,20 +66,19 @@ jobs:
       - name: Install desktop dependencies
         run: just desktop-install-ci
 
-      - name: Patch version and configure fork-owned updater
+      - name: Validate versioned source and configure fork-owned updater
         env:
+          BUZZ_RELEASE_DISTRIBUTION: night-mode
           BUZZ_UPDATER_ENDPOINT: ${{ env.UPDATE_ENDPOINT }}
           BUZZ_UPDATER_PUBLIC_KEY: ${{ secrets.BUZZ_UPDATER_PUBLIC_KEY }}
         run: |
-          cd desktop
-          node scripts/set-version-from-tag.mjs "$VERSION"
-          node scripts/build-release-config.mjs
-          cd src-tauri
-          cargo update --workspace
+          node desktop/scripts/verify-release-version.mjs "$VERSION"
+          (cd desktop && node scripts/build-release-config.mjs)
+          git diff --exit-code
 
       - name: Build sidecars
         run: |
-          cargo build --release \
+          cargo build --locked --release \
             -p buzz-acp \
             -p buzz-agent \
             -p buzz-dev-mcp \
@@ -99,7 +93,7 @@ jobs:
           echo "rev=$REV" >> "$GITHUB_OUTPUT"
           echo "short=${REV:0:7}" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ github.workspace }}/.cache/mesh-llama
           key: mesh-llama-${{ runner.os }}-metal-${{ steps.mesh.outputs.rev }}
@@ -109,7 +103,7 @@ jobs:
           MESH_REV_SHORT: ${{ steps.mesh.outputs.short }}
         run: |
           set -euo pipefail
-          cargo fetch --manifest-path desktop/src-tauri/Cargo.toml
+          cargo fetch --locked --manifest-path desktop/src-tauri/Cargo.toml
           MESH_ROOT=$(find "${CARGO_HOME:-$HOME/.cargo}/git/checkouts" -path "*/$MESH_REV_SHORT" -type d -name "$MESH_REV_SHORT" | head -1)
           [[ -n "$MESH_ROOT" ]] || {
             echo "::error::mesh-llm checkout not found"
@@ -143,7 +137,9 @@ jobs:
           pnpm tauri build \
             --verbose \
             --features mesh-llm \
-            --config src-tauri/tauri.release.conf.json
+            --config src-tauri/tauri.release.conf.json \
+            -- \
+            --locked
 
       - name: Verify and locate artifacts
         id: artifacts
@@ -172,9 +168,9 @@ jobs:
           SIG_PATH: ${{ steps.artifacts.outputs.sig }}
         run: |
           set -euo pipefail
-          TAG="v$VERSION"
+          TAG="$RELEASE_TAG"
           gh release create "$TAG" \
-            --target "$GITHUB_SHA" \
+            --verify-tag \
             --title "Buzz NYTEMODE EDITION $TAG" \
             --notes "Signed NYTEMODE EDITION build from $GITHUB_SHA" \
             2>/dev/null || true

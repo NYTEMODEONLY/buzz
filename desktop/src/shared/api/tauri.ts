@@ -106,6 +106,8 @@ type RawSendChannelMessageResult = {
 type RawRelayAgent = {
   pubkey: string;
   name: string;
+  is_owner_managed?: boolean;
+  owner_managed_persona_id?: string | null;
   agent_type: string;
   channels: string[];
   channel_ids: string[];
@@ -684,6 +686,8 @@ function fromRawRelayAgent(agent: RawRelayAgent): RelayAgent {
   return {
     pubkey: agent.pubkey,
     name: agent.name,
+    isOwnerManaged: agent.is_owner_managed ?? false,
+    ownerManagedPersonaId: agent.owner_managed_persona_id ?? null,
     agentType: agent.agent_type,
     channels: agent.channels,
     channelIds: agent.channel_ids ?? [],
