@@ -16,12 +16,12 @@ git -C "$tmp" tag -m "desktop release" v1.2.3
 
 (
   cd "$tmp"
-  GITHUB_REF=refs/tags/v1.2.3 "$verify" v 1.2.3
+  GITHUB_REF=refs/tags/v1.2.3 GITHUB_SHA=$(git rev-parse HEAD) "$verify" v 1.2.3
 )
 
 if (
   cd "$tmp"
-  GITHUB_REF=refs/heads/main "$verify" v 1.2.3
+  GITHUB_REF=refs/heads/main GITHUB_SHA=$(git rev-parse HEAD) "$verify" v 1.2.3
 ); then
   echo "branch-backed desktop release was accepted" >&2
   exit 1
@@ -31,7 +31,7 @@ echo second >>"$tmp/file"
 git -C "$tmp" commit -qam second
 if (
   cd "$tmp"
-  GITHUB_REF=refs/tags/v1.2.3 "$verify" v 1.2.3
+  GITHUB_REF=refs/tags/v1.2.3 GITHUB_SHA=$(git rev-parse HEAD) "$verify" v 1.2.3
 ); then
   echo "release accepted HEAD after the tag commit" >&2
   exit 1
@@ -40,8 +40,16 @@ fi
 git -C "$tmp" tag -m "relay release" relay-v2.0.0
 (
   cd "$tmp"
-  GITHUB_REF=refs/tags/relay-v2.0.0 "$verify" relay-v 2.0.0
+  GITHUB_REF=refs/tags/relay-v2.0.0 GITHUB_SHA=$(git rev-parse HEAD) "$verify" relay-v 2.0.0
 )
+
+if (
+  cd "$tmp"
+  GITHUB_REF=refs/tags/relay-v2.0.0 GITHUB_SHA=$(git rev-parse HEAD^) "$verify" relay-v 2.0.0
+); then
+  echo "release accepted a workflow source other than the tag commit" >&2
+  exit 1
+fi
 
 if grep -q 'inputs\.ref' \
   "$repo_root/.github/workflows/release.yml" \
