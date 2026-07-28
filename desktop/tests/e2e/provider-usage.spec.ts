@@ -79,7 +79,7 @@ test("Codex and Grok allowance stay visible and provider-scoped", async ({
   await expect(experiments.getByText("Provider coverage")).toBeVisible();
   await expect(experiments.getByText("Codex", { exact: true })).toBeVisible();
   await expect(experiments.getByText("Grok", { exact: true })).toBeVisible();
-  await expect(page.getByTestId("settings-night-mode-edition")).toHaveAttribute(
+  await expect(page.getByTestId("settings-nytemode-edition")).toHaveAttribute(
     "href",
     "https://nytemode.dev",
   );

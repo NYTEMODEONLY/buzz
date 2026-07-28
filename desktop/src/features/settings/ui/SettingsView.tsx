@@ -18,9 +18,9 @@ import {
 import { topChromeBackdrop } from "@/shared/layout/chromeLayout";
 import { cn } from "@/shared/lib/cn";
 import {
-  NIGHT_MODE_EDITION_NAME,
-  NIGHT_MODE_EDITION_URL,
-} from "@/shared/nightModeEdition";
+  NYTEMODE_EDITION_NAME,
+  NYTEMODE_EDITION_URL,
+} from "@/shared/nytemodeEdition";
 import {
   Sidebar,
   SidebarContent,
@@ -313,16 +313,16 @@ export function SettingsView({
             {appVersion ? <span aria-hidden="true">·</span> : null}
             <a
               className="underline-offset-2 transition-colors hover:text-sidebar-foreground hover:underline"
-              data-testid="settings-night-mode-edition"
-              href={NIGHT_MODE_EDITION_URL}
+              data-testid="settings-nytemode-edition"
+              href={NYTEMODE_EDITION_URL}
               onClick={(event) => {
                 event.preventDefault();
-                void openUrl(NIGHT_MODE_EDITION_URL);
+                void openUrl(NYTEMODE_EDITION_URL);
               }}
               rel="noreferrer"
               target="_blank"
             >
-              {NIGHT_MODE_EDITION_NAME}
+              {NYTEMODE_EDITION_NAME}
             </a>
           </p>
         </SidebarFooter>

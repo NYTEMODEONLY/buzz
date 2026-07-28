@@ -10,7 +10,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: night-mode-upstream-sync
+  group: nytemode-upstream-sync
   cancel-in-progress: true
 
 jobs:

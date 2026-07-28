@@ -1,10 +1,10 @@
-name: Release NYTEMODE EDITION for macOS
+name: Release nytemode edition for macOS
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version from the selected night-mode-vX.Y.Z tag"
+        description: "Version from the selected nytemode-vX.Y.Z tag"
         required: true
         type: string
 
@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: night-mode-release
+  group: nytemode-release
   cancel-in-progress: false
 
 jobs:
@@ -22,9 +22,9 @@ jobs:
     timeout-minutes: 90
     env:
       VERSION: ${{ inputs.version }}
-      RELEASE_TAG: night-mode-v${{ inputs.version }}
-      UPDATE_RELEASE: buzz-night-mode-latest
-      UPDATE_ENDPOINT: https://github.com/NYTEMODEONLY/buzz/releases/download/buzz-night-mode-latest/latest.json
+      RELEASE_TAG: nytemode-v${{ inputs.version }}
+      UPDATE_RELEASE: buzz-nytemode-latest
+      UPDATE_ENDPOINT: https://github.com/NYTEMODEONLY/buzz/releases/download/buzz-nytemode-latest/latest.json
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -44,7 +44,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          scripts/verify-release-ref.sh night-mode-v "$VERSION"
+          scripts/verify-release-ref.sh nytemode-v "$VERSION"
           for name in \
             APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_ID APPLE_PASSWORD \
             APPLE_SIGNING_IDENTITY APPLE_TEAM_ID BUZZ_UPDATER_PUBLIC_KEY \
@@ -68,7 +68,7 @@ jobs:
 
       - name: Validate versioned source and configure fork-owned updater
         env:
-          BUZZ_RELEASE_DISTRIBUTION: night-mode
+          BUZZ_RELEASE_DISTRIBUTION: nytemode
           BUZZ_UPDATER_ENDPOINT: ${{ env.UPDATE_ENDPOINT }}
           BUZZ_UPDATER_PUBLIC_KEY: ${{ secrets.BUZZ_UPDATER_PUBLIC_KEY }}
         run: |
@@ -115,7 +115,7 @@ jobs:
           "$MESH_ROOT/scripts/prepare-llama.sh" pinned
           "$MESH_ROOT/scripts/build-llama.sh" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15
 
-      - name: Build, sign, and notarize NYTEMODE EDITION
+      - name: Build, sign, and notarize nytemode edition
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
@@ -171,13 +171,13 @@ jobs:
           TAG="$RELEASE_TAG"
           gh release create "$TAG" \
             --verify-tag \
-            --title "Buzz NYTEMODE EDITION $TAG" \
-            --notes "Signed NYTEMODE EDITION build from $GITHUB_SHA" \
+            --title "Buzz nytemode edition $TAG" \
+            --notes "Signed nytemode edition build from $GITHUB_SHA" \
             2>/dev/null || true
           gh release upload "$TAG" "$DMG" --clobber
           gh release create "$UPDATE_RELEASE" \
             --prerelease \
-            --title "Buzz NYTEMODE EDITION Auto-Update" \
+            --title "Buzz nytemode edition Auto-Update" \
             --notes "Rolling signed updater artifacts." \
             2>/dev/null || true
           gh release upload "$UPDATE_RELEASE" "$ARCHIVE" "$SIG_PATH" --clobber
@@ -185,7 +185,7 @@ jobs:
           ARCHIVE_URL="https://github.com/NYTEMODEONLY/buzz/releases/download/$UPDATE_RELEASE/$ARCHIVE_NAME"
           jq -n \
             --arg version "$VERSION" \
-            --arg notes "Buzz NYTEMODE EDITION $VERSION" \
+            --arg notes "Buzz nytemode edition $VERSION" \
             --arg pub_date "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             --arg signature "$SIGNATURE" \
             --arg url "$ARCHIVE_URL" \

@@ -1,6 +1,6 @@
-# Releasing NYTEMODE EDITION
+# Releasing nytemode edition
 
-NYTEMODE EDITION releases are built from immutable, fork-owned tags. The
+nytemode edition releases are built from immutable, fork-owned tags. The
 release workflow never patches source manifests or regenerates dependency
 lockfiles.
 
@@ -16,17 +16,17 @@ lockfiles.
 4. Create an immutable annotated tag at that exact commit:
 
    ```sh
-   git tag -a night-mode-v0.5.0 -m "NYTEMODE EDITION 0.5.0"
-   git push fork refs/tags/night-mode-v0.5.0
+   git tag -a nytemode-v0.5.0 -m "nytemode edition 0.5.0"
+   git push fork refs/tags/nytemode-v0.5.0
    ```
 
-The `night-mode-v` namespace is deliberately distinct from Block's `v` desktop
+The `nytemode-v` namespace is deliberately distinct from Block's `v` desktop
 release tags.
 
 ## Run the release
 
-Open **Release NYTEMODE EDITION for macOS**, select the exact
-`night-mode-vX.Y.Z` tag in the ref picker, and enter the matching `X.Y.Z`
+Open **Release nytemode edition for macOS**, select the exact
+`nytemode-vX.Y.Z` tag in the ref picker, and enter the matching `X.Y.Z`
 version input.
 
 The workflow fails closed unless:
@@ -40,7 +40,7 @@ The workflow fails closed unless:
 - Cargo can build with the committed lockfiles under `--locked`.
 
 The workflow creates a versioned release at the existing namespaced tag and
-updates the signed `buzz-night-mode-latest` updater artifacts. It does not
+updates the signed `buzz-nytemode-latest` updater artifacts. It does not
 create an upstream-style `vX.Y.Z` tag or mutate dependencies during the build.
 
 ## Retry and verification
@@ -59,12 +59,12 @@ Treat these as separate receipts:
 Run the focused local contract before changing the workflow:
 
 ```sh
-scripts/test-night-mode-release-contract.sh
+scripts/test-nytemode-release-contract.sh
 ```
 
 ## Local smoke builds
 
-A local Tauri bundle is not a public Night Mode release. Before installing one
+A local Tauri bundle is not a public nytemode release. Before installing one
 for smoke testing, replace the linker-only signatures with a complete ad-hoc
 bundle signature and verify the sealed resources:
 

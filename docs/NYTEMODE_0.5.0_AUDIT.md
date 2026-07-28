@@ -1,4 +1,4 @@
-# Night Mode integration audit: Buzz 0.5.0
+# nytemode integration audit: Buzz 0.5.0
 
 ## Audited state
 
@@ -7,13 +7,13 @@
 - Official Buzz 0.5.0 tag:
   `4a977c588a540be38bd8ddb268cd24437bac8165`
 - Block release pull request: `block/buzz#3213`
-- Night Mode pre-integration head:
+- nytemode pre-integration head:
   `14fbb26cb1606d31f404441bf61c033f4172c948`
-- Night Mode integration merge:
+- nytemode integration merge:
   `ba58d5998a3019959937aee562686de42c382116`
-- Rollback ref: `backup/night-mode-before-v0.5.0-2026-07-28`
+- Rollback ref: `backup/nytemode-before-v0.5.0-2026-07-28`
 
-The Night Mode branch already contained the complete 0.5.0 release-candidate
+The nytemode branch already contained the complete 0.5.0 release-candidate
 feature train. Its shared upstream base was
 `3a4bf513df0e0c258587bfcbed9463d63723b56b`. The final tag added two commits:
 the configurable Postgres pool from `block/buzz#3191` and the release version,
@@ -69,11 +69,11 @@ integration.
 - React, TanStack Virtual, Radix primitives, Android tooling, Mesh-LLM, and
   related lockfiles advanced with the release.
 
-## Night Mode feature decisions
+## nytemode feature decisions
 
 | Area | Decision for 0.5.0 |
 | --- | --- |
-| Provider allowance | Retain the provider-neutral Night Mode implementation. Consumer allowance is not API billing or observed token spend. |
+| Provider allowance | Retain the provider-neutral nytemode implementation. Consumer allowance is not API billing or observed token spend. |
 | Categories/manual order | Retain the isolated category, ordering, pending-sync, and quiet-handle patches. |
 | External agents | Retain exact-pubkey presentation and mention behavior. Never mint a managed replacement for an external identity. |
 | Detached activity | Retain the small observer-capability patch over official ACP. |
@@ -90,7 +90,7 @@ Completion is reported in separate layers:
 2. Artifact: an exact-commit 0.5.0 app bundle with executable Buzz sidecars.
 3. Installation: `/Applications/Buzz.app` replaced without changing the
    `xyz.block.buzz.app` data lineage.
-4. Live UI: Night Mode attribution, provider cards, categories, runtime
+4. Live UI: nytemode attribution, provider cards, categories, runtime
    gallery, and updater boundary visible.
 5. Live agents: the existing canonical local identities, ZERO, and external
    ALICE resolve by exact pubkey and complete real mention/reply checks.

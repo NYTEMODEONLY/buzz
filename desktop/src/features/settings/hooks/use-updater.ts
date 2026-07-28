@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import { NIGHT_MODE_RELEASES_URL } from "@/shared/nightModeEdition";
+import { NYTEMODE_RELEASES_URL } from "@/shared/nytemodeEdition";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { isAutoUpdateSupported } from "@/shared/api/tauri";
 
@@ -31,7 +31,7 @@ const BACKGROUND_BLOCKED_STATES = new Set<UpdateStatus["state"]>([
   "manual-required",
 ]);
 
-const GITHUB_RELEASES_URL = NIGHT_MODE_RELEASES_URL;
+const GITHUB_RELEASES_URL = NYTEMODE_RELEASES_URL;
 
 function toErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);

@@ -1,12 +1,12 @@
-# Buzz NYTEMODE EDITION
+# Buzz nytemode edition
 
-NYTEMODE EDITION is the single Buzz desktop client maintained for nytemode.
+nytemode edition is the single Buzz desktop client maintained for nytemode.
 It follows current `block/buzz:main` while keeping a small, reviewable patch
 stack for custom product behavior.
 
 The current reviewed upstream baseline is Buzz `v0.5.0` at
 `4a977c588a540be38bd8ddb268cd24437bac8165`. See the
-[0.5.0 integration audit](NIGHT_MODE_0.5.0_AUDIT.md).
+[0.5.0 integration audit](NYTEMODE_0.5.0_AUDIT.md).
 
 ## Product contract
 
@@ -14,9 +14,12 @@ The current reviewed upstream baseline is Buzz `v0.5.0` at
 - One bundle identifier and data lineage: `xyz.block.buzz.app`.
 - One deep link: `buzz:`.
 - One existing owner identity and one canonical pubkey per agent.
-- Settings always identifies the build as **NYTEMODE EDITION** and links to
+- Settings always identifies the build as **nytemode edition** and links to
   [nytemode.dev](https://nytemode.dev).
 - Updates come only from signed `NYTEMODEONLY/buzz` releases.
+- The name is always written as the single lowercase word **nytemode**.
+  Separated spellings and legacy identifiers are rejected by
+  `scripts/test-nytemode-naming-contract.sh`.
 
 The former side-by-side Canary bundle, keyring, deep link, release channel, and
 distribution flag are retired. Canary databases are migration evidence only;
@@ -24,13 +27,13 @@ they must never be replayed into the main database or used to provision agents.
 
 ## Maintained custom features
 
-| Area | Night Mode patch | Upstream relationship |
+| Area | nytemode patch | Upstream relationship |
 | --- | --- | --- |
 | Provider allowance | Displays every provider used by active agents in parallel | Codex has a supported personal allowance reader; providers without one remain visible with an explicit unavailable state |
 | Sidebar organization | Categories, manual ordering, and quiet drag handles | Kept as an isolated feature module and covered by focused tests |
 | External agents | Relay-hosted agents can be named and mentioned by exact pubkey | Uses upstream managed-agent and relay-directory primitives |
 | Detached activity | Advertises observer support for detached work | Small capability patch over the upstream ACP runtime |
-| Branding and updates | Night Mode footer, website, releases, and updater trust | Isolated in `shared/nightModeEdition.ts` and release configuration |
+| Branding and updates | nytemode footer, website, releases, and updater trust | Isolated in `shared/nytemodeEdition.ts` and release configuration |
 
 Grok is detected from Zero's active runtime and shown next to Codex. Provider
 cards are independent: one provider failing does not hide another provider's
@@ -55,7 +58,7 @@ The allowance UI follows a provider-neutral contract:
 
 Codex personal allowance is read from the signed-in local Codex app-server.
 Grok Build first attempts the local CLI billing method. Because released Grok
-CLI versions may not expose that method, NYTEMODE EDITION may make a
+CLI versions may not expose that method, nytemode edition may make a
 best-effort, tightly bounded request to Grok's experimental account-billing
 surface using only the existing `~/.grok/auth.json` bearer session. It never
 imports browser cookies, reads Keychain credentials, stores a copied token, or
@@ -74,7 +77,7 @@ opaque account identifier rather than email as its cache key.
 This design was informed by the provider descriptors, ordered fetch strategies,
 account isolation, last-good refresh behavior, and compact display semantics in
 [CodexBar](https://github.com/steipete/CodexBar/tree/02b4ba278c81e667d2e5587d0ceb9eaf1d83f854).
-NYTEMODE EDITION is an independent Rust/TypeScript implementation and does not
+nytemode edition is an independent Rust/TypeScript implementation and does not
 copy CodexBar's Swift UI.
 
 ## Native-first maintenance
@@ -90,7 +93,7 @@ Before retaining a custom patch during an upstream sync:
 
 This is why the old custom Grok/Hermes runtime implementation is not carried
 forward: current upstream Buzz provides generic BYOH harness presets and the
-observer protocol foundation. NYTEMODE EDITION keeps only the integration
+observer protocol foundation. nytemode edition keeps only the integration
 needed for the actual external agents and UI.
 
 The official Grok preset remains the source of truth:

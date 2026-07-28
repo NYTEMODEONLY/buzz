@@ -27,8 +27,8 @@ const outputConfigPath = resolve(
 const updaterPubkey = process.env.BUZZ_UPDATER_PUBLIC_KEY;
 const updaterEndpoint = process.env.BUZZ_UPDATER_ENDPOINT;
 const releaseDistribution = process.env.BUZZ_RELEASE_DISTRIBUTION;
-const nightModeUpdaterEndpoint =
-  "https://github.com/NYTEMODEONLY/buzz/releases/download/buzz-night-mode-latest/latest.json";
+const nytemodeUpdaterEndpoint =
+  "https://github.com/NYTEMODEONLY/buzz/releases/download/buzz-nytemode-latest/latest.json";
 
 const missing = [];
 if (!updaterPubkey) missing.push("BUZZ_UPDATER_PUBLIC_KEY");
@@ -40,10 +40,10 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-if (releaseDistribution === "night-mode") {
-  if (updaterEndpoint !== nightModeUpdaterEndpoint) {
+if (releaseDistribution === "nytemode") {
+  if (updaterEndpoint !== nytemodeUpdaterEndpoint) {
     console.error(
-      `Error: NYTEMODE EDITION updater endpoint must be ${nightModeUpdaterEndpoint}`,
+      `Error: nytemode edition updater endpoint must be ${nytemodeUpdaterEndpoint}`,
     );
     process.exit(1);
   }

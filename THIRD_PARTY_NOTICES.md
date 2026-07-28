@@ -2,7 +2,7 @@
 
 ## CodexBar
 
-The NYTEMODE EDITION provider-allowance implementation was informed by and
+The nytemode edition provider-allowance implementation was informed by and
 adapts portions of CodexBar's Grok authentication, bounded billing fetch,
 gRPC-web framing, and protobuf usage parsing behavior:
 
