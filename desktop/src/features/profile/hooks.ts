@@ -43,6 +43,12 @@ import {
 } from "@/features/profile/lib/selfProfileStorage";
 import { useCommunities } from "@/features/communities/useCommunities";
 import { updateCachedChannelMemberDisplayName } from "@/features/channels/channelMemberProfileCache";
+import {
+  applyExternalAgentPresentationToProfile,
+  applyExternalAgentPresentationsToUsersBatch,
+  externalAgentPresentationScope,
+  useExternalAgentPresentations,
+} from "@/features/agents/externalAgentPresentation";
 
 export const profileQueryKey = ["profile"] as const;
 export const contactListQueryKey = (pubkey: string) =>
@@ -271,10 +277,27 @@ export function useUnfollowMutation(currentPubkey?: string) {
 }
 
 export function useUserProfileQuery(pubkey?: string) {
+  const identityQuery = useIdentityQuery();
+  const { activeCommunity } = useCommunities();
+  const presentationScope = externalAgentPresentationScope({
+    identityPubkey: identityQuery.data?.pubkey,
+    relayUrl: activeCommunity?.relayUrl,
+  });
+  const presentations = useExternalAgentPresentations(presentationScope);
+
   return useQuery({
     enabled: typeof pubkey === "string" && pubkey.length > 0,
     queryKey: ["user-profile", pubkey?.toLowerCase() ?? ""],
     queryFn: () => getUserProfile(pubkey),
+    select: React.useCallback(
+      (profile: Profile) =>
+        applyExternalAgentPresentationToProfile(
+          pubkey ?? profile.pubkey,
+          profile,
+          presentations,
+        ),
+      [presentations, pubkey],
+    ),
     staleTime: 60_000,
   });
 }
@@ -317,6 +340,13 @@ export function useUsersBatchQuery(
   },
 ) {
   const queryClient = useQueryClient();
+  const identityQuery = useIdentityQuery();
+  const { activeCommunity } = useCommunities();
+  const presentationScope = externalAgentPresentationScope({
+    identityPubkey: identityQuery.data?.pubkey,
+    relayUrl: activeCommunity?.relayUrl,
+  });
+  const presentations = useExternalAgentPresentations(presentationScope);
   const normalizedPubkeys = [
     ...new Set(pubkeys.map((pubkey) => pubkey.toLowerCase())),
   ]
@@ -368,6 +398,11 @@ export function useUsersBatchQuery(
     // key entirely. Without this, already-resolved authors would flash back
     // to their raw pubkey while the larger batch refetches.
     placeholderData: keepPreviousData,
+    select: React.useCallback(
+      (response: UsersBatchResponse) =>
+        applyExternalAgentPresentationsToUsersBatch(response, presentations),
+      [presentations],
+    ),
     staleTime: 60_000,
     gcTime: 5 * 60 * 1_000,
   });
