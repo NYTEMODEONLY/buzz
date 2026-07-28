@@ -190,7 +190,7 @@ export function SidebarProviderUsageIndicator({
   const ariaSummary = rows
     .map((row) =>
       row.constrainingWindow
-        ? `${row.productLabel}: ${row.constrainingWindow.remainingPercent}% remaining`
+        ? `${row.productLabel}: ${row.constrainingWindow.remainingPercent}% left`
         : `${row.productLabel}: allowance unavailable`,
     )
     .join("; ");

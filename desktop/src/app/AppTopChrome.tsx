@@ -44,6 +44,7 @@ function TopChromeSidebarTrigger() {
       aria-label="Toggle Sidebar"
       className={TOP_CHROME_ICON_BUTTON_CLASS}
       data-sidebar="trigger"
+      data-top-chrome-nav
       disabled={!sidebar}
       onClick={() => {
         sidebar?.toggleSidebar();
@@ -113,6 +114,7 @@ export function AppTopChrome({
         <Button
           aria-label="Go back"
           className={HISTORY_ICON_BUTTON_CLASS}
+          data-top-chrome-nav
           data-testid="global-back"
           disabled={!canGoBack}
           onClick={onGoBack}
@@ -124,6 +126,7 @@ export function AppTopChrome({
         <Button
           aria-label="Go forward"
           className={HISTORY_ICON_BUTTON_CLASS}
+          data-top-chrome-nav
           data-testid="global-forward"
           disabled={!canGoForward}
           onClick={onGoForward}

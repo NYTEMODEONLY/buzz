@@ -10,7 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type * as React from "react";
 
 import type {
@@ -169,6 +169,7 @@ export function SectionActionsMenu({
   onSortModeChange?: (mode: ChannelSortMode) => void;
   manualSortEnabled?: boolean;
 }) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const showSectionManagement = Boolean(onRenameSection || onDeleteSection);
   const showSort = Boolean(sortMode && onSortModeChange);
 
@@ -176,6 +177,7 @@ export function SectionActionsMenu({
     <DropdownMenu onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
         <button
+          ref={triggerRef}
           aria-label={`More actions for ${sectionLabel}`}
           className={cn(SECTION_ICON_BUTTON_CLASS, visibilityClassName)}
           data-testid={testId}
@@ -186,7 +188,13 @@ export function SectionActionsMenu({
           <EllipsisVertical className="h-4 w-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent
+        align="end"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          triggerRef.current?.blur();
+        }}
+      >
         {hasUnread && onMarkAllRead ? (
           <DropdownMenuItem onSelect={() => deferMenuAction(onMarkAllRead)}>
             <CheckCheck className="h-4 w-4" />

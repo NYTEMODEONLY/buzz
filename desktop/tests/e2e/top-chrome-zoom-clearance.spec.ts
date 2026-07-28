@@ -33,7 +33,9 @@ async function spoofMacPlatform(page: import("@playwright/test").Page) {
 }
 
 async function firstNavButtonX(page: import("@playwright/test").Page) {
-  const toggle = page.locator('[data-testid="app-top-chrome"] button').first();
+  const toggle = page
+    .locator('[data-testid="app-top-chrome"] [data-top-chrome-nav]')
+    .first();
   await expect(toggle).toBeVisible();
   const box = await toggle.boundingBox();
   expect(box).not.toBeNull();
@@ -65,7 +67,9 @@ async function expectTopChromeFixedHeight(
 async function expectNavButtonsFixedSize(
   page: import("@playwright/test").Page,
 ) {
-  const buttons = page.locator('[data-testid="app-top-chrome"] button');
+  const buttons = page.locator(
+    '[data-testid="app-top-chrome"] [data-top-chrome-nav]',
+  );
   const count = await buttons.count();
   expect(count).toBeGreaterThan(0);
   for (let i = 0; i < count; i += 1) {
