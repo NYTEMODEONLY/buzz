@@ -501,23 +501,36 @@ fn profile_target_dirs(root: &Path) -> [PathBuf; 2] {
     }
 }
 
-fn command_search_dirs() -> Vec<PathBuf> {
-    let mut dirs = profile_target_dirs(&workspace_root_dir()).to_vec();
-    if let Ok(current_dir) = std::env::current_dir() {
+fn command_search_dirs_from(
+    workspace_root: PathBuf,
+    current_dir: Option<PathBuf>,
+    executable_parent: Option<PathBuf>,
+) -> Vec<PathBuf> {
+    // A packaged app must be self-contained even when it was built locally and
+    // the compile-time workspace still exists on the same machine. Prefer the
+    // sidecars beside the running executable before considering build outputs.
+    let mut dirs = executable_parent.into_iter().collect::<Vec<_>>();
+    dirs.extend(profile_target_dirs(&workspace_root));
+    if let Some(current_dir) = current_dir {
         dirs.extend(profile_target_dirs(&current_dir));
     }
 
-    dirs.extend(
-        std::env::current_exe()
-            .ok()
-            .and_then(|path| path.parent().map(Path::to_path_buf)),
-    );
     dirs.into_iter().fold(Vec::new(), |mut unique, dir| {
         if !unique.contains(&dir) {
             unique.push(dir);
         }
         unique
     })
+}
+
+fn command_search_dirs() -> Vec<PathBuf> {
+    command_search_dirs_from(
+        workspace_root_dir(),
+        std::env::current_dir().ok(),
+        std::env::current_exe()
+            .ok()
+            .and_then(|path| path.parent().map(Path::to_path_buf)),
+    )
 }
 
 fn is_executable_file(path: &Path) -> bool {

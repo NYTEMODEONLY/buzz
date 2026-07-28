@@ -1,5 +1,34 @@
 use crate::managed_agents::discovery::{clear_resolve_cache, resolve_command};
 
+#[test]
+fn packaged_sidecar_directory_precedes_compile_time_workspace_outputs() {
+    use std::path::PathBuf;
+
+    let bundle = PathBuf::from("/Applications/Buzz.app/Contents/MacOS");
+    let workspace = PathBuf::from("/Users/runner/work/buzz/buzz");
+    let current = PathBuf::from("/Users/person");
+
+    let dirs = super::super::command_search_dirs_from(
+        workspace.clone(),
+        Some(current.clone()),
+        Some(bundle.clone()),
+    );
+
+    assert_eq!(dirs.first(), Some(&bundle));
+    assert!(
+        dirs.iter()
+            .position(|path| path == &workspace.join("target/release"))
+            .is_some_and(|index| index > 0),
+        "compile-time workspace output must remain only a fallback"
+    );
+    assert!(
+        dirs.iter()
+            .position(|path| path == &current.join("target/release"))
+            .is_some_and(|index| index > 0),
+        "current-directory output must remain only a fallback"
+    );
+}
+
 /// The legacy Goose Windows installer wrote `%USERPROFILE%\goose\goose.exe`,
 /// a directory on no standard PATH. `resolve_command_uncached` finds binaries
 /// outside PATH only by scanning `common_binary_paths()`, so that directory
