@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 
@@ -25,53 +26,40 @@ const FIVE_MINUTES = 5 * 60 * 1000;
 
 const toneClasses = {
   healthy: {
-    stroke: "stroke-emerald-500",
-    text: "text-emerald-600 dark:text-emerald-400",
-    progress: "[&>div]:bg-emerald-500",
+    progress: "[&>div]:bg-primary",
+    sidebarStroke: "stroke-sidebar-primary",
   },
   warning: {
-    stroke: "stroke-amber-500",
-    text: "text-amber-600 dark:text-amber-400",
-    progress: "[&>div]:bg-amber-500",
+    progress: "[&>div]:bg-warning",
+    sidebarStroke: "stroke-warning",
   },
   critical: {
-    stroke: "stroke-red-500",
-    text: "text-red-600 dark:text-red-400",
-    progress: "[&>div]:bg-red-500",
+    progress: "[&>div]:bg-destructive",
+    sidebarStroke: "stroke-destructive",
   },
 } as const;
 
 function UsageRing({
-  compact = false,
   isLoading,
   remainingPercent,
-  label,
 }: {
-  compact?: boolean;
   isLoading: boolean;
   remainingPercent?: number;
-  label: string;
 }) {
+  const sizeClass = "h-[18px] w-[18px]";
+
   if (isLoading) {
-    return (
-      <Spinner
-        aria-hidden="true"
-        className={cn(compact ? "h-5 w-5" : "h-8 w-8", "border-2")}
-      />
-    );
+    return <Spinner aria-hidden="true" className={cn(sizeClass, "border-2")} />;
   }
   if (remainingPercent === undefined) {
     return (
       <span
         className={cn(
-          "flex items-center justify-center rounded-full bg-destructive/10 text-destructive",
-          compact ? "h-5 w-5" : "h-8 w-8",
+          "flex shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive",
+          sizeClass,
         )}
       >
-        <AlertTriangle
-          aria-hidden="true"
-          className={compact ? "h-3 w-3" : "h-4 w-4"}
-        />
+        <AlertTriangle aria-hidden="true" className="h-2.5 w-2.5" />
       </span>
     );
   }
@@ -80,17 +68,14 @@ function UsageRing({
   const circumference = 2 * Math.PI * 14;
   const dashOffset = circumference * (1 - remainingPercent / 100);
   return (
-    <span
-      className={cn("relative shrink-0", compact ? "h-5 w-5" : "h-8 w-8")}
-      aria-hidden="true"
-    >
+    <span className={cn("relative shrink-0", sizeClass)} aria-hidden="true">
       <svg
-        className={cn("-rotate-90", compact ? "h-5 w-5" : "h-8 w-8")}
+        aria-hidden="true"
+        className={cn("-rotate-90", sizeClass)}
         viewBox="0 0 32 32"
       >
-        <title>{label} allowance remaining</title>
         <circle
-          className="stroke-muted"
+          className="stroke-sidebar-border/70"
           cx="16"
           cy="16"
           fill="none"
@@ -99,8 +84,8 @@ function UsageRing({
         />
         <circle
           className={cn(
-            "transition-[stroke-dashoffset] duration-300",
-            toneClasses[tone].stroke,
+            "motion-safe:transition-[stroke-dashoffset] motion-safe:duration-300",
+            toneClasses[tone].sidebarStroke,
           )}
           cx="16"
           cy="16"
@@ -167,185 +152,289 @@ export function SidebarProviderUsageIndicator({
     : query.isError
       ? providerUsageErrorMessage(query.error)
       : null;
+  const popoverTitleId = React.useId();
+  const popoverDescriptionId = React.useId();
+  const allowanceHeadingId = React.useId();
+  const [refreshNotice, setRefreshNotice] = React.useState("");
+  const additionalWindows =
+    usage?.windows.filter((window) => window.id !== constrainingWindow?.id) ??
+    [];
+  const triggerLabel =
+    remainingPercent !== undefined
+      ? `${planLabel}: ${remainingPercent}% remaining`
+      : (errorMessage ?? `Loading ${productLabel} allowance`);
+
+  async function refreshAllowance() {
+    setRefreshNotice("");
+    const result = await query.refetch();
+    setRefreshNotice(
+      result.isSuccess
+        ? `${productLabel} allowance updated.`
+        : `${productLabel} allowance could not be updated.`,
+    );
+  }
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
-          aria-label={
-            remainingPercent !== undefined
-              ? `${planLabel}: ${remainingPercent}% remaining`
-              : (errorMessage ?? `Loading ${productLabel} allowance`)
-          }
-          className={cn(
-            "flex items-center gap-2 rounded-lg text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-sidebar-ring",
-            compact
-              ? "ml-auto h-[28px] w-auto border-0 bg-transparent px-2 py-0"
-              : "mb-2 w-full border border-sidebar-border/70 bg-sidebar-accent/35 px-2 py-2 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1",
-          )}
-          data-testid="sidebar-provider-usage"
-          type="button"
-        >
-          <UsageRing
-            compact={compact}
+        {compact ? (
+          <ChromeUsageTrigger
+            errorMessage={errorMessage}
             isLoading={query.isPending && supported}
-            label={productLabel}
+            productLabel={productLabel}
             remainingPercent={remainingPercent}
+            triggerLabel={triggerLabel}
           />
-          <span
-            className={cn(
-              "min-w-0 flex-1",
-              !compact && "group-data-[collapsible=icon]:hidden",
-            )}
-          >
-            <span className="block truncate text-xs font-medium">
-              {compact
-                ? remainingPercent !== undefined
-                  ? `${remainingPercent}% left`
-                  : errorMessage
-                    ? "Unavailable"
-                    : "Checking…"
-                : (errorMessage ?? planLabel)}
-            </span>
-            {!compact ? (
-              <span
-                className={cn(
-                  "block truncate text-sm font-semibold tabular-nums",
-                  tone ? toneClasses[tone].text : "text-muted-foreground",
-                )}
-              >
-                {remainingPercent !== undefined
-                  ? `${remainingPercent}% left`
-                  : supported
-                    ? "Checking allowance…"
-                    : "Unavailable"}
-              </span>
-            ) : null}
-          </span>
-        </button>
+        ) : (
+          <SettingsUsageTrigger
+            errorMessage={errorMessage}
+            isLoading={query.isPending && supported}
+            productLabel={productLabel}
+            remainingPercent={remainingPercent}
+            triggerLabel={triggerLabel}
+          />
+        )}
       </PopoverTrigger>
 
       <PopoverContent
+        aria-describedby={popoverDescriptionId}
+        aria-labelledby={popoverTitleId}
         align="end"
-        className="w-80"
+        className="max-h-[min(38rem,var(--radix-popover-content-available-height))] w-[min(25rem,var(--radix-popover-content-available-width),calc(100vw-1.5rem))] overflow-y-auto overscroll-contain p-3"
+        collisionPadding={12}
+        role="dialog"
         side={compact ? "bottom" : "right"}
-        sideOffset={10}
+        sideOffset={compact ? 10 : 14}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="font-semibold">{planLabel}</p>
-            <p className="text-xs text-muted-foreground">
-              Personal subscription allowance
-            </p>
-          </div>
-          {supported ? (
-            <Button
-              aria-label={`Refresh ${productLabel} allowance`}
-              disabled={query.isFetching}
-              onClick={() => void query.refetch()}
-              size="icon-xs"
-              type="button"
-              variant="ghost"
-            >
-              <RefreshCw
-                aria-hidden="true"
-                className={cn(query.isFetching && "animate-spin")}
-              />
-            </Button>
-          ) : null}
+        <div className="px-0.5">
+          <h2 className="text-sm font-semibold" id={popoverTitleId}>
+            AI usage
+          </h2>
+          <p
+            className="mt-0.5 text-2xs text-muted-foreground"
+            id={popoverDescriptionId}
+          >
+            Personal provider allowance
+          </p>
         </div>
 
-        {usage && constrainingWindow ? (
-          <div className="mt-4 space-y-4">
-            <div>
-              <div className="mb-1.5 flex items-baseline justify-between">
-                <span className="text-2xl font-semibold tabular-nums">
-                  {constrainingWindow.remainingPercent}%
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {constrainingWindow.usedPercent}% used
-                </span>
-              </div>
-              <Progress
-                aria-label={`${constrainingWindow.remainingPercent}% remaining`}
-                className={cn(
-                  "h-2 bg-muted",
-                  tone && toneClasses[tone].progress,
-                )}
-                value={constrainingWindow.remainingPercent}
-              />
-              <p className="mt-2 text-xs text-muted-foreground">
-                {constrainingWindow.label} · Resets{" "}
-                {formatUsageReset(constrainingWindow.resetsAt)}
+        <section
+          aria-labelledby={allowanceHeadingId}
+          className="mt-3 rounded-lg border border-border/70 p-2.5"
+        >
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h3
+                className="truncate text-sm font-semibold"
+                id={allowanceHeadingId}
+              >
+                {planLabel}
+              </h3>
+              <p className="mt-0.5 text-2xs text-muted-foreground">
+                Personal subscription allowance
               </p>
             </div>
-
-            {usage.windows.length > 1 ? (
-              <dl className="space-y-2 rounded-lg bg-muted/45 p-3 text-xs">
-                {usage.windows.map((window) => (
-                  <div
-                    className="flex items-start justify-between gap-3"
-                    key={window.id}
-                  >
-                    <dt className="text-muted-foreground">{window.label}</dt>
-                    <dd className="text-right font-medium tabular-nums">
-                      {window.remainingPercent}% left
-                      <span className="block font-normal text-muted-foreground">
-                        {formatUsageReset(window.resetsAt)}
-                      </span>
-                    </dd>
-                  </div>
-                ))}
-              </dl>
+            {supported ? (
+              <Button
+                aria-label={`Refresh ${productLabel} allowance`}
+                disabled={query.isFetching}
+                onClick={() => void refreshAllowance()}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <RefreshCw
+                  aria-hidden="true"
+                  className={cn(query.isFetching && "motion-safe:animate-spin")}
+                />
+              </Button>
             ) : null}
+          </div>
+          <span aria-live="polite" className="sr-only" role="status">
+            {refreshNotice}
+          </span>
 
-            <dl className="grid grid-cols-2 gap-3 rounded-lg bg-muted/45 p-3 text-xs">
+          {usage && constrainingWindow ? (
+            <div className="mt-2.5 space-y-2.5">
+              {query.isError ? (
+                <div className="rounded-md bg-warning-bg px-2 py-1.5 text-2xs text-warning">
+                  Last successful data shown; the latest refresh failed.
+                </div>
+              ) : null}
               <div>
-                <dt className="text-muted-foreground">Latest daily usage</dt>
-                <dd className="mt-0.5 font-medium tabular-nums">
-                  {formatTokenCount(usage.totals.latestDailyTokens)} tokens
-                </dd>
-                {usage.totals.latestDailyDate ? (
-                  <dd className="text-muted-foreground">
-                    {usage.totals.latestDailyDate}
-                  </dd>
+                <div className="mb-1.5 flex items-baseline justify-between gap-3">
+                  <span className="text-lg font-semibold tabular-nums">
+                    {constrainingWindow.remainingPercent}% remaining
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {constrainingWindow.usedPercent}% used
+                  </span>
+                </div>
+                <Progress
+                  aria-label={`${productLabel}: ${constrainingWindow.remainingPercent}% remaining`}
+                  aria-valuetext={`${constrainingWindow.remainingPercent}% remaining for ${constrainingWindow.label}; resets ${formatUsageReset(constrainingWindow.resetsAt)}`}
+                  className={cn(
+                    "h-1.5 bg-muted [&>div]:motion-reduce:transition-none",
+                    tone && toneClasses[tone].progress,
+                  )}
+                  value={constrainingWindow.remainingPercent}
+                />
+                <p className="mt-1.5 text-2xs text-muted-foreground">
+                  {constrainingWindow.label} · Resets{" "}
+                  {formatUsageReset(constrainingWindow.resetsAt)}
+                </p>
+              </div>
+              {additionalWindows.length > 0 ? (
+                <dl className="space-y-1.5 rounded-md bg-muted/45 p-2 text-2xs">
+                  {additionalWindows.map((window) => (
+                    <div
+                      className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5"
+                      key={window.id}
+                    >
+                      <dt className="min-w-0 truncate text-muted-foreground">
+                        {window.label}
+                      </dt>
+                      <dd className="text-right font-medium tabular-nums">
+                        {window.remainingPercent}% remaining
+                      </dd>
+                      <dd className="col-span-2 text-muted-foreground">
+                        Resets {formatUsageReset(window.resetsAt)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border/50 pt-2 text-2xs text-muted-foreground">
+                {usage.totals.creditBalance !== null ? (
+                  <div
+                    className="contents"
+                    data-testid="provider-usage-credit-balance"
+                  >
+                    <span>Credits {usage.totals.creditBalance}</span>
+                    <span aria-hidden="true">·</span>
+                  </div>
                 ) : null}
+                {usage.totals.latestDailyTokens !== null ? (
+                  <>
+                    <span>
+                      Daily {formatTokenCount(usage.totals.latestDailyTokens)}{" "}
+                      tokens
+                    </span>
+                    <span aria-hidden="true">·</span>
+                  </>
+                ) : null}
+                <span>
+                  Updated{" "}
+                  {new Date(usage.fetchedAt * 1000).toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </span>
               </div>
-              <div>
-                <dt className="text-muted-foreground">Lifetime usage</dt>
-                <dd className="mt-0.5 font-medium tabular-nums">
-                  {formatTokenCount(usage.totals.lifetimeTokens)} tokens
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Credit balance</dt>
-                <dd className="mt-0.5 font-medium tabular-nums">
-                  {usage.totals.creditBalance ?? "—"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Reset credits</dt>
-                <dd className="mt-0.5 font-medium tabular-nums">
-                  {usage.totals.resetCreditsAvailable ?? "—"}
-                </dd>
-              </div>
-            </dl>
-
-            <p className="text-2xs text-muted-foreground">
-              Updated{" "}
-              {new Date(usage.fetchedAt * 1000).toLocaleTimeString([], {
-                hour: "numeric",
-                minute: "2-digit",
-              })}
-              {query.isError ? " · refresh failed; showing last result" : ""}
-            </p>
-          </div>
-        ) : (
-          <div className="mt-4 rounded-lg bg-muted/45 p-3 text-sm text-muted-foreground">
-            {errorMessage ?? `Reading ${productLabel} allowance…`}
-          </div>
-        )}
+            </div>
+          ) : (
+            <div className="mt-3 rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
+              {errorMessage ?? `Reading ${productLabel} allowance…`}
+            </div>
+          )}
+        </section>
       </PopoverContent>
     </Popover>
   );
 }
+
+type UsageTriggerProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  errorMessage: string | null;
+  isLoading: boolean;
+  productLabel: string;
+  remainingPercent?: number;
+  triggerLabel: string;
+};
+
+const ChromeUsageTrigger = React.forwardRef<
+  HTMLButtonElement,
+  UsageTriggerProps
+>(function ChromeUsageTrigger(
+  {
+    className,
+    errorMessage,
+    isLoading,
+    productLabel,
+    remainingPercent,
+    triggerLabel,
+    ...triggerProps
+  },
+  ref,
+) {
+  return (
+    <button
+      {...triggerProps}
+      aria-label={`Open AI usage details. ${triggerLabel}`}
+      className={cn(
+        "ml-auto flex h-[28px] min-w-0 max-w-[min(18rem,calc(100vw-9rem))] shrink items-center gap-1.5 overflow-hidden rounded-lg px-2 text-left text-sidebar-foreground transition-colors hover:bg-sidebar-accent focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-sidebar-ring",
+        className,
+      )}
+      data-testid="sidebar-provider-usage"
+      ref={ref}
+      type="button"
+    >
+      <UsageRing isLoading={isLoading} remainingPercent={remainingPercent} />
+      <span className="min-w-0 truncate whitespace-nowrap text-xs font-medium tabular-nums">
+        {productLabel}{" "}
+        {remainingPercent !== undefined
+          ? `${remainingPercent}%`
+          : errorMessage
+            ? "Unavailable"
+            : "Checking…"}
+      </span>
+    </button>
+  );
+});
+
+const SettingsUsageTrigger = React.forwardRef<
+  HTMLButtonElement,
+  UsageTriggerProps
+>(function SettingsUsageTrigger(
+  {
+    className,
+    errorMessage,
+    isLoading,
+    productLabel,
+    remainingPercent,
+    triggerLabel,
+    ...triggerProps
+  },
+  ref,
+) {
+  return (
+    <button
+      {...triggerProps}
+      aria-label={`Open AI usage details. ${triggerLabel}`}
+      className={cn(
+        "mb-2 w-full rounded-lg border border-sidebar-border/70 bg-sidebar-accent/35 px-2 py-1.5 text-left text-sidebar-foreground transition-colors hover:bg-sidebar-accent/55 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1",
+        className,
+      )}
+      data-testid="sidebar-provider-usage"
+      ref={ref}
+      type="button"
+    >
+      <span className="hidden group-data-[collapsible=icon]:block">
+        <UsageRing isLoading={isLoading} remainingPercent={remainingPercent} />
+      </span>
+      <span className="block text-2xs font-medium text-sidebar-foreground/65 group-data-[collapsible=icon]:hidden">
+        AI usage
+      </span>
+      <span className="mt-1 flex min-w-0 items-center gap-0.5 text-xs font-semibold tabular-nums group-data-[collapsible=icon]:hidden">
+        <UsageRing isLoading={isLoading} remainingPercent={remainingPercent} />
+        <span className="min-w-0 truncate">{productLabel}</span>
+        <span className="ml-auto shrink-0">
+          {remainingPercent !== undefined
+            ? `${remainingPercent}%`
+            : errorMessage
+              ? "Unavailable"
+              : "Checking…"}
+        </span>
+      </span>
+    </button>
+  );
+});
