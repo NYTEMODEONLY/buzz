@@ -616,10 +616,7 @@ mod tests {
         let healthy = parse_credentials(
             br#"{"https://auth.x.ai::client":{"key":"ok","expires_at":"2099-01-01T00:00:00Z"}}"#,
         );
-        assert_eq!(
-            capability_for(healthy, false, 1_800_000_000).0,
-            "available"
-        );
+        assert_eq!(capability_for(healthy, false, 1_800_000_000).0, "available");
 
         let expired = parse_credentials(
             br#"{"https://auth.x.ai::client":{"key":"old","expires_at":"2020-01-01T00:00:00Z"}}"#,
@@ -629,12 +626,7 @@ mod tests {
             "not_authenticated"
         );
         assert_eq!(
-            capability_for(
-                Err("grok_auth_invalid".to_string()),
-                true,
-                1_800_000_000,
-            )
-            .0,
+            capability_for(Err("grok_auth_invalid".to_string()), true, 1_800_000_000,).0,
             "not_authenticated"
         );
         assert_eq!(
