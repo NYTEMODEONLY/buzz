@@ -21,7 +21,7 @@ test("provider allowance stays off until the user opts in", async ({
   await expect(toggle).toBeChecked();
   await expect(page.getByTestId("sidebar-provider-usage")).toHaveAttribute(
     "aria-label",
-    /Codex: 48% remaining/,
+    /Codex: 48% left/,
   );
 });
 
@@ -50,7 +50,7 @@ test("Codex and Grok allowance stay visible and provider-scoped", async ({
   const indicator = page.getByTestId("sidebar-provider-usage").first();
   await expect(indicator).toHaveAttribute(
     "aria-label",
-    /Codex: 48% remaining; Grok: 74% remaining/,
+    /Codex: 48% left; Grok: 74% left/,
   );
   await expect(indicator.getByTestId("provider-usage-codex")).toContainText(
     /(Codex|C)\s*48%/,
@@ -86,7 +86,7 @@ test("Codex and Grok allowance stay visible and provider-scoped", async ({
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(
     page.getByTestId("sidebar-provider-usage").first(),
-  ).toHaveAttribute("aria-label", /Codex: 48% remaining/);
+  ).toHaveAttribute("aria-label", /Codex: 48% left/);
 });
 
 test("an unsupported Grok reader is neutral and does not mask Codex", async ({
@@ -134,7 +134,7 @@ test("an unsupported Grok reader is neutral and does not mask Codex", async ({
   const indicator = page.getByTestId("sidebar-provider-usage").first();
   await expect(indicator).toHaveAttribute(
     "aria-label",
-    /Codex: 48% remaining; Grok: allowance unavailable/,
+    /Codex: 48% left; Grok: allowance unavailable/,
   );
   await expect(indicator.getByTestId("provider-usage-grok")).toContainText(
     /(Grok|G)\s*—/,
@@ -187,7 +187,7 @@ test("a real Grok refresh failure remains isolated from Codex data", async ({
   const indicator = page.getByTestId("sidebar-provider-usage").first();
   await expect(indicator).toHaveAttribute(
     "aria-label",
-    /Codex: 48% remaining; Grok: usage refresh failed/,
+    /Codex: 48% left; Grok: usage refresh failed/,
   );
   await expect(indicator.getByTestId("provider-usage-grok")).toContainText(
     /(Grok|G)\s*!/,
@@ -291,7 +291,7 @@ test("usage surfaces reflow, follow the active accent, and keep accessible struc
   const chromeIndicator = topChrome.getByTestId("sidebar-provider-usage");
   await expect(chromeIndicator).toHaveAttribute(
     "aria-label",
-    /Open AI usage details\. Codex: 48% remaining; Claude: allowance unavailable; Grok: 74% remaining/,
+    /Open AI usage details\. Codex: 48% left; Claude: allowance unavailable; Grok: 74% left/,
   );
   await expect(
     chromeIndicator.getByTestId("provider-usage-codex"),
