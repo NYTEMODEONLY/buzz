@@ -38,3 +38,8 @@ not reusable by this fork.
 The release manifest must name artifacts produced from the tagged `main` SHA.
 Keep the previous signed installer until the new version has completed the
 N to N+1 update test and agent-identity verification.
+
+The `Release Night Mode Edition for macOS` workflow enforces this boundary.
+It intentionally fails before building unless all fork-owned updater and Apple
+signing secrets are configured. Never weaken that preflight to produce an
+untrusted public release.

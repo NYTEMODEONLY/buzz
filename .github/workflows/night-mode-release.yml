@@ -1,0 +1,207 @@
+name: Release Night Mode Edition for macOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version without the v prefix"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: night-mode-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'NYTEMODEONLY/buzz'
+    runs-on: macos-14
+    timeout-minutes: 90
+    env:
+      VERSION: ${{ inputs.version }}
+      UPDATE_RELEASE: buzz-night-mode-latest
+      UPDATE_ENDPOINT: https://github.com/NYTEMODEONLY/buzz/releases/download/buzz-night-mode-latest/latest.json
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate release source and credentials
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          BUZZ_UPDATER_PUBLIC_KEY: ${{ secrets.BUZZ_UPDATER_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
+            echo "::error::Night Mode releases must run from main"
+            exit 1
+          }
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || {
+            echo "::error::Version must be semver"
+            exit 1
+          }
+          for name in \
+            APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_ID APPLE_PASSWORD \
+            APPLE_SIGNING_IDENTITY APPLE_TEAM_ID BUZZ_UPDATER_PUBLIC_KEY \
+            TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+          do
+            [[ -n "${!name:-}" ]] || {
+              echo "::error::Required secret $name is missing"
+              exit 1
+            }
+          done
+
+      - uses: cashapp/activate-hermit@cea9af7913204a965fd488637a8d1811bba2e616 # v1
+
+      - uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: Install desktop dependencies
+        run: just desktop-install-ci
+
+      - name: Patch version and configure fork-owned updater
+        env:
+          BUZZ_UPDATER_ENDPOINT: ${{ env.UPDATE_ENDPOINT }}
+          BUZZ_UPDATER_PUBLIC_KEY: ${{ secrets.BUZZ_UPDATER_PUBLIC_KEY }}
+        run: |
+          cd desktop
+          node scripts/set-version-from-tag.mjs "$VERSION"
+          node scripts/build-release-config.mjs
+          cd src-tauri
+          cargo update --workspace
+
+      - name: Build sidecars
+        run: |
+          cargo build --release \
+            -p buzz-acp \
+            -p buzz-agent \
+            -p buzz-dev-mcp \
+            -p git-credential-nostr \
+            -p buzz-cli
+          ./scripts/bundle-sidecars.sh
+
+      - name: Resolve mesh-llm revision
+        id: mesh
+        run: |
+          REV=$(python3 -c 'import tomllib; d=tomllib.load(open("Cargo.lock", "rb")); p=next(p for p in d["package"] if p["name"] == "mesh-llm-sdk"); print(p["source"].rsplit("#", 1)[1])')
+          echo "rev=$REV" >> "$GITHUB_OUTPUT"
+          echo "short=${REV:0:7}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cache/mesh-llama
+          key: mesh-llama-${{ runner.os }}-metal-${{ steps.mesh.outputs.rev }}
+
+      - name: Build mesh llama native libraries
+        env:
+          MESH_REV_SHORT: ${{ steps.mesh.outputs.short }}
+        run: |
+          set -euo pipefail
+          cargo fetch --manifest-path desktop/src-tauri/Cargo.toml
+          MESH_ROOT=$(find "${CARGO_HOME:-$HOME/.cargo}/git/checkouts" -path "*/$MESH_REV_SHORT" -type d -name "$MESH_REV_SHORT" | head -1)
+          [[ -n "$MESH_ROOT" ]] || {
+            echo "::error::mesh-llm checkout not found"
+            exit 1
+          }
+          export LLAMA_STAGE_BACKEND=metal
+          export LLAMA_STAGE_BUILD_DIR="$GITHUB_WORKSPACE/.cache/mesh-llama/build-stage-abi-metal"
+          export CMAKE_OSX_DEPLOYMENT_TARGET=10.15
+          "$MESH_ROOT/scripts/prepare-llama.sh" pinned
+          "$MESH_ROOT/scripts/build-llama.sh" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15
+
+      - name: Build, sign, and notarize Night Mode Edition
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          BUZZ_UPDATER_ENDPOINT: ${{ env.UPDATE_ENDPOINT }}
+          BUZZ_UPDATER_PUBLIC_KEY: ${{ secrets.BUZZ_UPDATER_PUBLIC_KEY }}
+          CMAKE_OSX_DEPLOYMENT_TARGET: "10.15"
+          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+          LLAMA_STAGE_BACKEND: metal
+          LLAMA_STAGE_BUILD_DIR: ${{ github.workspace }}/.cache/mesh-llama/build-stage-abi-metal
+          MACOSX_DEPLOYMENT_TARGET: "10.15"
+          SKIPPY_LLAMA_AUTO_BUILD: "0"
+          TAURI_BUNDLER_DMG_IGNORE_CI: "true"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          cd desktop
+          pnpm tauri build \
+            --verbose \
+            --features mesh-llm \
+            --config src-tauri/tauri.release.conf.json
+
+      - name: Verify and locate artifacts
+        id: artifacts
+        run: |
+          set -euo pipefail
+          BUNDLE=desktop/src-tauri/target/release/bundle
+          APP="$BUNDLE/macos/Buzz.app"
+          DMG=$(find "$BUNDLE/dmg" -name '*.dmg' -type f | head -1)
+          ARCHIVE=$(find "$BUNDLE/macos" -name '*.tar.gz' -type f | head -1)
+          SIG="${ARCHIVE}.sig"
+          [[ -d "$APP" && -f "$DMG" && -f "$ARCHIVE" && -f "$SIG" ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")" == "xyz.block.buzz.app" ]]
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          spctl --assess --type execute --verbose=4 "$APP"
+          echo "dmg=$DMG" >> "$GITHUB_OUTPUT"
+          echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
+          echo "archive_name=$(basename "$ARCHIVE")" >> "$GITHUB_OUTPUT"
+          echo "sig=$SIG" >> "$GITHUB_OUTPUT"
+
+      - name: Publish versioned and rolling releases
+        env:
+          ARCHIVE: ${{ steps.artifacts.outputs.archive }}
+          ARCHIVE_NAME: ${{ steps.artifacts.outputs.archive_name }}
+          DMG: ${{ steps.artifacts.outputs.dmg }}
+          GH_TOKEN: ${{ github.token }}
+          SIG_PATH: ${{ steps.artifacts.outputs.sig }}
+        run: |
+          set -euo pipefail
+          TAG="v$VERSION"
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "Buzz Night Mode Edition $TAG" \
+            --notes "Signed Night Mode Edition build from $GITHUB_SHA" \
+            2>/dev/null || true
+          gh release upload "$TAG" "$DMG" --clobber
+          gh release create "$UPDATE_RELEASE" \
+            --prerelease \
+            --title "Buzz Night Mode Edition Auto-Update" \
+            --notes "Rolling signed updater artifacts." \
+            2>/dev/null || true
+          gh release upload "$UPDATE_RELEASE" "$ARCHIVE" "$SIG_PATH" --clobber
+          SIGNATURE=$(cat "$SIG_PATH")
+          ARCHIVE_URL="https://github.com/NYTEMODEONLY/buzz/releases/download/$UPDATE_RELEASE/$ARCHIVE_NAME"
+          jq -n \
+            --arg version "$VERSION" \
+            --arg notes "Buzz Night Mode Edition $VERSION" \
+            --arg pub_date "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --arg signature "$SIGNATURE" \
+            --arg url "$ARCHIVE_URL" \
+            '{
+              version: $version,
+              notes: $notes,
+              pub_date: $pub_date,
+              platforms: {
+                "darwin-aarch64": {
+                  signature: $signature,
+                  url: $url
+                }
+              }
+            }' > latest.json
+          gh release upload "$UPDATE_RELEASE" latest.json --clobber
