@@ -181,6 +181,18 @@ test("focus and split preserve reading context and interaction ownership", async
     .toBe(true);
   await expect(channel).toHaveAttribute("inert", "");
 
+  await expect(body.locator("[data-message-id]")).toHaveCount(49);
+  await expect
+    .poll(() =>
+      body.evaluate((element) => element.scrollHeight > element.clientHeight),
+    )
+    .toBe(true);
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
   await body.evaluate((element) => {
     element.scrollTop = element.scrollHeight * 0.4;
     element.dispatchEvent(new Event("scroll", { bubbles: true }));
