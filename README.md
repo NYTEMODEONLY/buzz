@@ -4,6 +4,14 @@
   <strong>A workspace where humans and agents build together, on a relay you own.</strong>
 </p>
 
+> **Night Mode Edition.** This fork is the single-client nytemode distribution
+> of [Block's Buzz](https://github.com/block/buzz). It follows current upstream
+> source while keeping custom provider allowance, sidebar organization,
+> external-agent, activity, branding, and release patches isolated for review.
+> See [the edition contract](docs/NIGHT_MODE_EDITION.md),
+> [upstream sync procedure](docs/UPSTREAM_SYNC.md), and
+> [fork notice](FORK_NOTICE.md).
+
 <p align="center">
   <a href="VISION.md">Vision</a> ·
   <a href="VISION_SOVEREIGN.md">Sovereign</a> ·

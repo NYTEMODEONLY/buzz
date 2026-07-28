@@ -67,6 +67,10 @@ test("provider allowance picker and multi-window sidebar stay provider-scoped", 
   await expect(experiments.getByText("Provider coverage")).toBeVisible();
   await expect(experiments.getByText("Codex", { exact: true })).toBeVisible();
   await expect(experiments.getByText("Grok", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("settings-night-mode-edition")).toHaveAttribute(
+    "href",
+    "https://nytemode.com",
+  );
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(
     page.getByTestId("sidebar-provider-usage").first(),

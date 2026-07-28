@@ -301,6 +301,9 @@ async function expectBuzzSettingsPalette(page: Page, mode: "light" | "dark") {
   const version = page.getByTestId("settings-version");
   if ((await version.count()) > 0) {
     await expect(version).toHaveCSS("color", mutedColor);
+    await expect(page.getByTestId("settings-night-mode-edition")).toHaveText(
+      "Night Mode Edition",
+    );
   }
 }
 

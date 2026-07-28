@@ -1,5 +1,6 @@
 import * as React from "react";
 import { getVersion } from "@tauri-apps/api/app";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { AlertCircle, ArrowLeft, LoaderCircle, RefreshCw } from "lucide-react";
 
 import { useMyRelayMembershipLookupQuery } from "@/features/community-members/hooks";
@@ -16,6 +17,10 @@ import {
 } from "@/shared/features/useFeatureEnabled";
 import { topChromeBackdrop } from "@/shared/layout/chromeLayout";
 import { cn } from "@/shared/lib/cn";
+import {
+  NIGHT_MODE_EDITION_NAME,
+  NIGHT_MODE_EDITION_URL,
+} from "@/shared/nightModeEdition";
 import {
   Sidebar,
   SidebarContent,
@@ -299,15 +304,27 @@ export function SettingsView({
           <FeatureGate feature="providerUsage">
             <SidebarProviderUsageIndicator />
           </FeatureGate>
-          {appVersion ? (
-            <p
-              className="px-2 pb-1 text-xs text-sidebar-foreground/45"
-              data-buzz-sidebar-secondary
-              data-testid="settings-version"
+          <p
+            className="flex flex-wrap items-center gap-x-1 px-2 pb-1 text-xs text-sidebar-foreground/45"
+            data-buzz-sidebar-secondary
+            data-testid="settings-version"
+          >
+            {appVersion ? <span>v{appVersion}</span> : null}
+            {appVersion ? <span aria-hidden="true">·</span> : null}
+            <a
+              className="underline-offset-2 transition-colors hover:text-sidebar-foreground hover:underline"
+              data-testid="settings-night-mode-edition"
+              href={NIGHT_MODE_EDITION_URL}
+              onClick={(event) => {
+                event.preventDefault();
+                void openUrl(NIGHT_MODE_EDITION_URL);
+              }}
+              rel="noreferrer"
+              target="_blank"
             >
-              v{appVersion}
-            </p>
-          ) : null}
+              {NIGHT_MODE_EDITION_NAME}
+            </a>
+          </p>
         </SidebarFooter>
       </Sidebar>
 
