@@ -61,3 +61,24 @@ Run the focused local contract before changing the workflow:
 ```sh
 scripts/test-night-mode-release-contract.sh
 ```
+
+## Local smoke builds
+
+A local Tauri bundle is not a public Night Mode release. Before installing one
+for smoke testing, replace the linker-only signatures with a complete ad-hoc
+bundle signature and verify the sealed resources:
+
+```sh
+codesign --force --deep --sign - \
+  --entitlements desktop/src-tauri/Entitlements.plist \
+  desktop/src-tauri/target/release/bundle/macos/Buzz.app
+codesign --verify --deep --strict --verbose=2 \
+  desktop/src-tauri/target/release/bundle/macos/Buzz.app
+```
+
+Ad-hoc signing changes the app's code identity and can therefore trigger a
+macOS Keychain approval prompt on first launch. That approval belongs to the
+owner and must not be automated or bypassed. A locally ad-hoc-signed app is
+appropriate only for on-machine validation; it is not notarized, is rejected
+by Gatekeeper for public distribution, and must never be uploaded as a signed
+release or updater artifact.
