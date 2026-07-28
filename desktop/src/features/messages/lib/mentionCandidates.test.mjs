@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   buildTeamMentionCandidates,
   formatTeamMention,
+  mergeMentionCandidate,
+  presentMentionCandidate,
 } from "./mentionCandidates.ts";
 
 function persona(id, displayName, isActive = true) {
@@ -169,4 +171,37 @@ test("teams with identity and persona display-name collisions are not suggested"
     ),
     [],
   );
+});
+
+test("external presentation names win without changing mention identity or ownership", () => {
+  const pubkey = "a".repeat(64);
+  const ownerPubkey = "b".repeat(64);
+  const presented = presentMentionCandidate(
+    {
+      kind: "identity",
+      pubkey,
+      displayName: "Alice",
+      avatarUrl: null,
+      isAgent: true,
+      isMember: true,
+      ownerPubkey,
+    },
+    {
+      displayName: "ALICE",
+      avatarUrl: "https://example.com/alice.png",
+      about: "Hermes operator",
+      runtimeLabel: "HERMES",
+    },
+  );
+  const merged = mergeMentionCandidate({
+    candidate: presented,
+    current: undefined,
+    profileOwnerPubkey: ownerPubkey,
+    pubkey,
+  });
+
+  assert.equal(merged.displayName, "ALICE");
+  assert.equal(merged.avatarUrl, "https://example.com/alice.png");
+  assert.equal(merged.pubkey, pubkey);
+  assert.equal(merged.ownerPubkey, ownerPubkey);
 });

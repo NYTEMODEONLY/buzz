@@ -153,6 +153,15 @@ test("owned Hermes agent has an editable persistent ALICE card", async ({
   await expect(
     page.getByTestId(`edit-external-agent-${alicePubkey}`),
   ).toBeVisible();
+
+  await page.getByTestId("channel-general").click();
+  await expect(page.getByTestId("chat-title")).toHaveText("general");
+  await page.getByTestId("message-input").fill("@ali");
+  const autocomplete = page
+    .getByTestId("message-composer")
+    .getByTestId("mention-autocomplete");
+  await expect(autocomplete.getByText("ALICE", { exact: true })).toBeVisible();
+  await expect(autocomplete.getByText("Alice", { exact: true })).toHaveCount(0);
 });
 
 test("joined-DM agent stays visible when the relay directory misses it", async ({

@@ -6,9 +6,14 @@ import {
   useTeamsQuery,
 } from "@/features/agents/hooks";
 import {
+  externalAgentPresentationScope,
+  useExternalAgentPresentations,
+} from "@/features/agents/externalAgentPresentation";
+import {
   useChannelMembersQuery,
   useChannelsQuery,
 } from "@/features/channels/hooks";
+import { useCommunities } from "@/features/communities/useCommunities";
 import { useIsArchivedPredicate } from "@/features/identity-archive/hooks";
 import type { MentionSuggestion } from "@/features/messages/ui/MentionAutocomplete";
 import {
@@ -47,8 +52,10 @@ import {
   formatSearchUserSecondaryLabel,
   formatTeamMention,
   globalSearchIdentityKey,
+  mergeMentionCandidate,
   type MentionCandidate,
   mentionCandidateLabel,
+  presentMentionCandidate,
 } from "./mentionCandidates";
 const MENTION_DEBOUNCE_MS = 120;
 const MENTION_SUGGESTION_LIMIT = 50;
@@ -85,6 +92,13 @@ export function useMentions(
   const currentPubkey = identityQuery.data?.pubkey
     ? normalizePubkey(identityQuery.data.pubkey)
     : null;
+  const { activeCommunity } = useCommunities();
+  const presentationScope = externalAgentPresentationScope({
+    identityPubkey: currentPubkey,
+    relayUrl: activeCommunity?.relayUrl,
+  });
+  const externalAgentPresentations =
+    useExternalAgentPresentations(presentationScope);
   const membersQuery = useChannelMembersQuery(channelId);
   const members = externalMembers ?? membersQuery.data;
   const isArchivedDiscovery = useIsArchivedPredicate();
@@ -233,19 +247,23 @@ export function useMentions(
 
     const addCandidate = (candidate: MentionCandidate & { pubkey: string }) => {
       const pubkey = normalizePubkey(candidate.pubkey);
+      const presentedCandidate = presentMentionCandidate(
+        candidate,
+        externalAgentPresentations[pubkey],
+      );
       if (isArchivedDiscovery(pubkey)) {
         return;
       }
       if (
         !mentionableAgentPubkeys.has(pubkey) &&
-        !isAgentIdentityInManagedList(candidate, managedAgentPubkeys)
+        !isAgentIdentityInManagedList(presentedCandidate, managedAgentPubkeys)
       ) {
         return;
       }
       if (
         shouldHideAgentFromMentions({
-          isAgent: candidate.isAgent === true,
-          isMember: candidate.isMember === true,
+          isAgent: presentedCandidate.isAgent === true,
+          isMember: presentedCandidate.isMember === true,
           pubkey,
           mentionableAgentPubkeys,
           directoryAgentPubkeys,
@@ -254,36 +272,15 @@ export function useMentions(
         return;
       }
       const current = candidatesByPubkey.get(pubkey);
-      if (!current) {
-        candidatesByPubkey.set(pubkey, { ...candidate, pubkey });
-        return;
-      }
-
-      candidatesByPubkey.set(pubkey, {
-        ...current,
-        avatarUrl: current.avatarUrl ?? candidate.avatarUrl ?? null,
-        displayName:
-          current.isAgent && !candidate.isAgent
-            ? current.displayName
-            : candidate.isAgent && !current.isAgent
-              ? (candidate.displayName ?? current.displayName)
-              : (current.displayName ?? candidate.displayName),
-        isAgent: current.isAgent || candidate.isAgent,
-        isMember: current.isMember || candidate.isMember,
-        personaId: current.personaId ?? candidate.personaId,
-        personaName: current.personaName ?? candidate.personaName ?? null,
-        role: current.role ?? candidate.role ?? null,
-        secondaryLabel:
-          current.secondaryLabel ?? candidate.secondaryLabel ?? null,
-        ownerPubkey:
-          current.ownerPubkey ??
-          candidate.ownerPubkey ??
-          (candidate.isAgent && candidate.pubkey
-            ? profiles?.[pubkey]?.ownerPubkey
-            : null) ??
-          null,
-        isManagedAgent: current.isManagedAgent || candidate.isManagedAgent,
-      });
+      candidatesByPubkey.set(
+        pubkey,
+        mergeMentionCandidate({
+          candidate: presentedCandidate,
+          current,
+          profileOwnerPubkey: profiles?.[pubkey]?.ownerPubkey ?? null,
+          pubkey,
+        }),
+      );
     };
     for (const member of members ?? []) {
       const pubkey = normalizePubkey(member.pubkey);
@@ -416,6 +413,7 @@ export function useMentions(
     currentPubkey,
     directoryAgentPubkeys,
     dmAgentCandidates.candidates,
+    externalAgentPresentations,
     isArchivedDiscovery,
     managedAgentNamesByPubkey,
     managedAgentPersonaIds,

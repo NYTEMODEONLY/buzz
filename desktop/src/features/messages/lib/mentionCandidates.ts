@@ -1,4 +1,5 @@
 import { resolveTeamPersonas } from "@/features/agents/lib/teamPersonas";
+import type { ExternalAgentPresentation } from "@/features/agents/externalAgentPresentation";
 import type {
   AgentPersona,
   AgentTeam,
@@ -37,6 +38,56 @@ export function mentionCandidateLabel(candidate: MentionCandidate) {
     candidate.displayName ??
     (candidate.pubkey ? truncatePubkey(candidate.pubkey) : "agent")
   );
+}
+
+export function presentMentionCandidate(
+  candidate: MentionCandidate & { pubkey: string },
+  presentation: ExternalAgentPresentation | undefined,
+) {
+  return presentation
+    ? {
+        ...candidate,
+        displayName: presentation.displayName ?? candidate.displayName,
+        avatarUrl: presentation.avatarUrl ?? candidate.avatarUrl ?? null,
+      }
+    : candidate;
+}
+
+export function mergeMentionCandidate({
+  candidate,
+  current,
+  profileOwnerPubkey,
+  pubkey,
+}: {
+  candidate: MentionCandidate & { pubkey: string };
+  current: MentionCandidate | undefined;
+  profileOwnerPubkey: string | null;
+  pubkey: string;
+}): MentionCandidate {
+  if (!current) return { ...candidate, pubkey };
+
+  return {
+    ...current,
+    avatarUrl: current.avatarUrl ?? candidate.avatarUrl ?? null,
+    displayName:
+      current.isAgent && !candidate.isAgent
+        ? current.displayName
+        : candidate.isAgent && !current.isAgent
+          ? (candidate.displayName ?? current.displayName)
+          : (current.displayName ?? candidate.displayName),
+    isAgent: current.isAgent || candidate.isAgent,
+    isMember: current.isMember || candidate.isMember,
+    personaId: current.personaId ?? candidate.personaId,
+    personaName: current.personaName ?? candidate.personaName ?? null,
+    role: current.role ?? candidate.role ?? null,
+    secondaryLabel: current.secondaryLabel ?? candidate.secondaryLabel ?? null,
+    ownerPubkey:
+      current.ownerPubkey ??
+      candidate.ownerPubkey ??
+      (candidate.isAgent && candidate.pubkey ? profileOwnerPubkey : null) ??
+      null,
+    isManagedAgent: current.isManagedAgent || candidate.isManagedAgent,
+  };
 }
 
 export function globalSearchIdentityKey(candidate: MentionCandidate) {
