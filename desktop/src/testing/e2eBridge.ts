@@ -222,6 +222,22 @@ type E2eConfig = {
       mcp?: MockCommandAvailability;
     };
     managedAgents?: MockManagedAgentSeed[];
+    providerUsageCapabilities?: Array<{
+      id: "codex" | "claude" | "grok";
+      name: string;
+      availability:
+        | "available"
+        | "not_installed"
+        | "not_authenticated"
+        | "unsupported"
+        | "incompatible_version"
+        | "temporarily_unavailable";
+      detail: string;
+    }>;
+    providerUsageSnapshots?: Partial<
+      Record<"codex" | "claude" | "grok", Record<string, unknown>>
+    >;
+    providerUsageErrors?: Partial<Record<"codex" | "claude" | "grok", string>>;
     /** Per agent+relay runtime rows for the pair-scoped lifecycle commands
      *  (`list/start/stop/restart_managed_agent_runtime`). */
     managedAgentRuntimes?: MockManagedAgentRuntimeSeed[];
@@ -9545,32 +9561,89 @@ export function maybeInstallE2eTauriMocks() {
         return { ...DEFAULT_MOCK_IDENTITY, lost: isLost, locked: isLocked };
       }
       case "list_provider_usage_capabilities":
-        return [
-          {
-            id: "codex",
-            name: "Codex",
-            availability: "available",
-            detail: "Uses your existing local Codex sign-in",
-          },
-          {
-            id: "claude",
-            name: "Claude",
-            availability: "unsupported",
-            detail: "No supported standalone personal allowance reader yet",
-          },
-          {
-            id: "grok",
-            name: "Grok",
-            availability: "unsupported",
-            detail: "Consumer allowance is available in Grok Settings",
-          },
-        ];
-      case "get_provider_usage":
+        return (
+          activeConfig?.mock?.providerUsageCapabilities ?? [
+            {
+              id: "codex",
+              name: "Codex",
+              availability: "available",
+              detail: "Uses your existing local Codex sign-in",
+            },
+            {
+              id: "claude",
+              name: "Claude",
+              availability: "unsupported",
+              detail: "No supported standalone personal allowance reader yet",
+            },
+            {
+              id: "grok",
+              name: "Grok",
+              availability: "available",
+              detail: "Uses your existing local Grok sign-in",
+            },
+          ]
+        );
+      case "get_provider_usage": {
+        const requestedProvider =
+          (
+            payload as {
+              provider?: "codex" | "claude" | "grok";
+            } | null
+          )?.provider ?? "codex";
+        const configuredError =
+          activeConfig?.mock?.providerUsageErrors?.[requestedProvider];
+        if (configuredError) throw new Error(configuredError);
+        const configuredSnapshot =
+          activeConfig?.mock?.providerUsageSnapshots?.[requestedProvider];
+        if (configuredSnapshot) return configuredSnapshot;
+        if (requestedProvider === "grok") {
+          return {
+            provider: "grok",
+            vendor: "xai",
+            product: "grok",
+            source: "personalAllowance",
+            sourceDetail: "grokWebBilling",
+            dataConfidence: "percentOnly",
+            freshness: "fresh",
+            account: {
+              label: "Personal account",
+              accountType: "user",
+              loginMethod: "oidc",
+            },
+            planType: null,
+            windows: [
+              {
+                id: "grok:billing",
+                label: "Current period",
+                usedPercent: 26,
+                remainingPercent: 74,
+                resetsAt: 1_785_658_777,
+                durationMinutes: null,
+              },
+            ],
+            totals: {
+              creditBalance: null,
+              resetCreditsAvailable: null,
+              lifetimeTokens: null,
+              latestDailyTokens: null,
+              latestDailyDate: null,
+            },
+            fetchedAt: 1_753_390_800,
+          };
+        }
         return {
           provider: "codex",
           vendor: "openai",
           product: "codex",
           source: "personalAllowance",
+          sourceDetail: "codexAppServer",
+          dataConfidence: "exact",
+          freshness: "fresh",
+          account: {
+            label: "Personal account",
+            accountType: "chatgpt",
+            loginMethod: "oauth",
+          },
           planType: "pro",
           windows: [
             {
@@ -9599,6 +9672,7 @@ export function maybeInstallE2eTauriMocks() {
           },
           fetchedAt: 1_753_390_800,
         };
+      }
       case "sign_nostr_identity_binding": {
         const request = payload as {
           challengeId: string;

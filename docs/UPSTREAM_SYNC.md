@@ -18,10 +18,14 @@ branch. `block/buzz:main` is source input, never an automatic binary update.
 3. Review the feature matrix in `NIGHT_MODE_EDITION.md`.
 4. Compare each custom patch with upstream. Retire patches whose behavior is
    now native.
-5. Run focused feature tests, full CI, build an artifact, and exercise live UI
+5. Re-audit provider allowance interfaces. Keep personal subscription
+   allowance, API-team billing, and observed spend separate; remove an
+   experimental reader if upstream or a provider ships a supported native
+   equivalent.
+6. Run focused feature tests, full CI, build an artifact, and exercise live UI
    and agent mentions.
-6. Merge only after identity and data-lineage checks pass.
-7. Tag and release from the reviewed `main` SHA.
+7. Merge only after identity and data-lineage checks pass.
+8. Tag and release from the reviewed `main` SHA.
 
 Do not merge `main` directly into an upstream mirror and do not force-push the
 product branch. Resolve upstream conflicts in the proposal pull request so the

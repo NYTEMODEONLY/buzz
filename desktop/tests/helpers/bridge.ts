@@ -210,6 +210,25 @@ type MockBridgeOptions = {
     mcp?: MockCommandAvailability;
   };
   managedAgents?: MockManagedAgentSeed[];
+  /** Override provider-allowance capability rows for focused usage UI tests. */
+  providerUsageCapabilities?: Array<{
+    id: "codex" | "claude" | "grok";
+    name: string;
+    availability:
+      | "available"
+      | "not_installed"
+      | "not_authenticated"
+      | "unsupported"
+      | "incompatible_version"
+      | "temporarily_unavailable";
+    detail: string;
+  }>;
+  /** Provider-keyed allowance snapshots returned by the native mock bridge. */
+  providerUsageSnapshots?: Partial<
+    Record<"codex" | "claude" | "grok", Record<string, unknown>>
+  >;
+  /** Provider-keyed stable error codes for partial-failure UI tests. */
+  providerUsageErrors?: Partial<Record<"codex" | "claude" | "grok", string>>;
   /** Per agent+relay runtime rows for pair-scoped lifecycle commands. */
   managedAgentRuntimes?: Array<{
     pubkey: string;

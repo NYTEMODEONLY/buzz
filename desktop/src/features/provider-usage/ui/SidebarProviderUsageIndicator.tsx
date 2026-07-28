@@ -4,7 +4,14 @@ import {
   useQuery,
   type UseQueryResult,
 } from "@tanstack/react-query";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import {
+  AlertTriangle,
+  CircleHelp,
+  Clock3,
+  LockKeyhole,
+  PackageX,
+  RefreshCw,
+} from "lucide-react";
 
 import {
   getProviderUsage,
@@ -20,6 +27,7 @@ import {
   formatUsageReset,
   providerUsageErrorMessage,
   providerUsageTone,
+  providerUsageViewState,
 } from "@/features/provider-usage/providerUsageDisplay.mjs";
 import { detectActiveProviderUsageIds } from "@/features/provider-usage/providerUsageProviders.mjs";
 import { useManagedAgentsQuery } from "@/features/agents/hooks";
@@ -30,6 +38,14 @@ import type {
 } from "@/shared/api/tauriProviderUsage";
 
 const FIVE_MINUTES = 5 * 60 * 1000;
+type ProviderUsageViewState =
+  | "loading"
+  | "ready"
+  | "stale"
+  | "authRequired"
+  | "notInstalled"
+  | "unavailable"
+  | "error";
 
 const toneClasses = {
   healthy: {
@@ -51,35 +67,42 @@ const toneClasses = {
 
 function UsageRing({
   compact = false,
-  isLoading,
   remainingPercent,
+  state,
   label,
 }: {
   compact?: boolean;
-  isLoading: boolean;
   remainingPercent?: number;
+  state: ProviderUsageViewState;
   label: string;
 }) {
-  if (isLoading) {
-    return (
-      <Spinner
-        aria-hidden="true"
-        className={cn(compact ? "h-5 w-5" : "h-8 w-8", "border-2")}
-      />
-    );
+  const sizeClass = compact ? "h-5 w-5" : "h-8 w-8";
+  const iconClass = compact ? "h-3 w-3" : "h-4 w-4";
+
+  if (state === "loading") {
+    return <Spinner aria-hidden="true" className={cn(sizeClass, "border-2")} />;
   }
   if (remainingPercent === undefined) {
+    const Icon =
+      state === "authRequired"
+        ? LockKeyhole
+        : state === "notInstalled"
+          ? PackageX
+          : state === "error"
+            ? AlertTriangle
+            : CircleHelp;
     return (
       <span
         className={cn(
-          "flex items-center justify-center rounded-full bg-destructive/10 text-destructive",
-          compact ? "h-5 w-5" : "h-8 w-8",
+          "flex items-center justify-center rounded-full",
+          sizeClass,
+          state === "error"
+            ? "bg-destructive/10 text-destructive"
+            : "bg-muted text-muted-foreground",
         )}
+        data-state={state}
       >
-        <AlertTriangle
-          aria-hidden="true"
-          className={compact ? "h-3 w-3" : "h-4 w-4"}
-        />
+        <Icon aria-hidden="true" className={iconClass} />
       </span>
     );
   }
@@ -89,13 +112,15 @@ function UsageRing({
   const dashOffset = circumference * (1 - remainingPercent / 100);
   return (
     <span
-      className={cn("relative shrink-0", compact ? "h-5 w-5" : "h-8 w-8")}
+      className={cn(
+        "relative shrink-0",
+        sizeClass,
+        state === "stale" && "opacity-60",
+      )}
       aria-hidden="true"
+      data-state={state}
     >
-      <svg
-        className={cn("-rotate-90", compact ? "h-5 w-5" : "h-8 w-8")}
-        viewBox="0 0 32 32"
-      >
+      <svg className={cn("-rotate-90", sizeClass)} viewBox="0 0 32 32">
         <title>{label} allowance remaining</title>
         <circle
           className="stroke-muted"
@@ -120,6 +145,9 @@ function UsageRing({
           strokeWidth="3"
         />
       </svg>
+      {state === "stale" ? (
+        <Clock3 className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-sidebar text-amber-500" />
+      ) : null}
     </span>
   );
 }
@@ -133,7 +161,8 @@ export function SidebarProviderUsageIndicator({
   const capabilitiesQuery = useQuery({
     queryKey: ["provider-usage-capabilities"],
     queryFn: listProviderUsageCapabilities,
-    staleTime: Number.POSITIVE_INFINITY,
+    staleTime: FIVE_MINUTES,
+    refetchOnWindowFocus: true,
   });
   const capabilities = capabilitiesQuery.data ?? [];
   const activeProviders = React.useMemo(
@@ -170,12 +199,18 @@ export function SidebarProviderUsageIndicator({
     );
     const productLabel = providerLabel(provider);
     const supported = capability?.availability === "available";
+    const state = providerUsageViewState({
+      availability: capability?.availability,
+      error: query?.error,
+      hasData: Boolean(usage),
+      isError: Boolean(query?.isError),
+      isPending: Boolean(query?.isPending),
+    }) as ProviderUsageViewState;
     const errorMessage = supported
       ? query?.isError
-        ? providerUsageErrorMessage(query.error)
+        ? providerUsageErrorMessage(query.error, productLabel)
         : null
-      : (capability?.detail ??
-        `${productLabel} does not expose a supported allowance reader`);
+      : capabilityMessage(capability, productLabel);
     return {
       capability,
       constrainingWindow,
@@ -183,6 +218,7 @@ export function SidebarProviderUsageIndicator({
       productLabel,
       provider,
       query,
+      state,
       supported,
       usage,
     };
@@ -191,7 +227,7 @@ export function SidebarProviderUsageIndicator({
     .map((row) =>
       row.constrainingWindow
         ? `${row.productLabel}: ${row.constrainingWindow.remainingPercent}% left`
-        : `${row.productLabel}: allowance unavailable`,
+        : `${row.productLabel}: ${compactStatusLabel(row.state)}`,
     )
     .join("; ");
 
@@ -201,7 +237,7 @@ export function SidebarProviderUsageIndicator({
         <button
           aria-label={ariaSummary}
           className={cn(
-            "flex items-center gap-2 rounded-lg text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-sidebar-ring",
+            "flex shrink-0 items-center gap-2 rounded-lg text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-sidebar-ring",
             compact
               ? "ml-auto h-[28px] w-auto border-0 bg-transparent px-2 py-0"
               : "mb-2 w-full border border-sidebar-border/70 bg-sidebar-accent/35 px-2 py-2 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1",
@@ -218,9 +254,9 @@ export function SidebarProviderUsageIndicator({
               >
                 <UsageRing
                   compact={compact}
-                  isLoading={Boolean(row.query?.isPending && row.supported)}
                   label={row.productLabel}
                   remainingPercent={row.constrainingWindow?.remainingPercent}
+                  state={row.state}
                 />
               </span>
             ))}
@@ -231,26 +267,32 @@ export function SidebarProviderUsageIndicator({
               !compact && "group-data-[collapsible=icon]:hidden",
             )}
           >
-            <span className="block truncate text-xs font-medium">
+            <span
+              className={cn(
+                "block text-xs font-medium",
+                compact && "whitespace-nowrap",
+              )}
+            >
               {compact
                 ? rows
                     .map((row) =>
                       row.constrainingWindow
                         ? `${shortProviderLabel(row.provider)} ${row.constrainingWindow.remainingPercent}%`
-                        : `${shortProviderLabel(row.provider)} —`,
+                        : `${shortProviderLabel(row.provider)} ${compactValue(row.state)}`,
                     )
                     .join(" · ")
                 : "AI provider allowance"}
             </span>
             {!compact ? (
-              <span className="block truncate text-sm font-semibold tabular-nums text-muted-foreground">
-                {rows
-                  .map((row) =>
-                    row.constrainingWindow
-                      ? `${row.productLabel} ${row.constrainingWindow.remainingPercent}%`
-                      : `${row.productLabel} —`,
-                  )
-                  .join(" · ")}
+              <span className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-sm font-semibold tabular-nums text-muted-foreground">
+                {rows.map((row) => (
+                  <span className="whitespace-nowrap" key={row.provider}>
+                    {row.productLabel}{" "}
+                    {row.constrainingWindow
+                      ? `${row.constrainingWindow.remainingPercent}%`
+                      : compactValue(row.state)}
+                  </span>
+                ))}
               </span>
             ) : null}
           </span>
@@ -259,7 +301,7 @@ export function SidebarProviderUsageIndicator({
 
       <PopoverContent
         align="end"
-        className="w-96"
+        className="w-[min(28rem,calc(100vw-2rem))]"
         side={compact ? "bottom" : "right"}
         sideOffset={10}
       >
@@ -288,25 +330,60 @@ function providerLabel(provider: ProviderUsageId): string {
 }
 
 function shortProviderLabel(provider: ProviderUsageId): string {
-  return provider === "codex" ? "OAI" : provider === "claude" ? "ANT" : "XAI";
+  return provider === "codex"
+    ? "Codex"
+    : provider === "claude"
+      ? "Claude"
+      : "Grok";
+}
+
+function compactValue(state: ProviderUsageViewState): string {
+  if (state === "loading") return "…";
+  if (state === "error") return "!";
+  return "—";
+}
+
+function compactStatusLabel(state: ProviderUsageViewState): string {
+  if (state === "loading") return "loading";
+  if (state === "authRequired") return "sign-in required";
+  if (state === "notInstalled") return "not installed";
+  if (state === "error") return "usage refresh failed";
+  return "allowance unavailable";
+}
+
+function capabilityMessage(
+  capability: ProviderUsageCapability | undefined,
+  productLabel: string,
+): string {
+  if (!capability) return `${productLabel} capability is still loading`;
+  if (capability.availability === "not_authenticated") {
+    return `Sign in with ${productLabel} to show usage`;
+  }
+  if (capability.availability === "not_installed") {
+    return `${productLabel} is not installed`;
+  }
+  return (
+    capability.detail ??
+    `${productLabel} does not expose a supported allowance reader`
+  );
 }
 
 function ProviderAllowanceCard({
-  capability,
   constrainingWindow,
   errorMessage,
   productLabel,
   provider,
   query,
+  state,
   supported,
   usage,
 }: {
-  capability?: ProviderUsageCapability;
   constrainingWindow?: ProviderUsageSnapshot["windows"][number];
   errorMessage: string | null;
   productLabel: string;
   provider: ProviderUsageId;
   query: UseQueryResult<ProviderUsageSnapshot, Error> | undefined;
+  state: ProviderUsageViewState;
   supported: boolean;
   usage?: ProviderUsageSnapshot;
 }) {
@@ -316,6 +393,13 @@ function ProviderAllowanceCard({
   const planLabel = usage?.planType
     ? `${productLabel} ${usage.planType.charAt(0).toUpperCase()}${usage.planType.slice(1)}`
     : productLabel;
+  const sourceLabel = providerSourceLabel(usage);
+  const totalsLabel = providerTotalsLabel(usage);
+  const accountLabel =
+    usage?.account?.label ??
+    [usage?.account?.accountType, usage?.account?.loginMethod]
+      .filter((value): value is string => Boolean(value))
+      .join(" · ");
 
   return (
     <section
@@ -326,10 +410,13 @@ function ProviderAllowanceCard({
         <div>
           <p className="text-sm font-semibold">{planLabel}</p>
           <p className="text-2xs text-muted-foreground">
-            {supported
-              ? "Personal subscription allowance"
-              : (capability?.detail ?? "Allowance reader unavailable")}
+            {supported ? sourceLabel : "Allowance reader unavailable"}
           </p>
+          {accountLabel ? (
+            <p className="mt-0.5 text-2xs text-muted-foreground">
+              {accountLabel}
+            </p>
+          ) : null}
         </div>
         {supported ? (
           <Button
@@ -349,6 +436,15 @@ function ProviderAllowanceCard({
       </div>
       {usage && constrainingWindow ? (
         <div className="mt-3 space-y-3">
+          {state === "stale" ? (
+            <div
+              className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2 py-1.5 text-2xs text-amber-700 dark:text-amber-300"
+              data-testid={`provider-usage-stale-${provider}`}
+            >
+              <Clock3 aria-hidden="true" className="h-3.5 w-3.5" />
+              Last successful data shown; the latest refresh failed.
+            </div>
+          ) : null}
           <div>
             <div className="mb-1.5 flex items-baseline justify-between">
               <span className="text-xl font-semibold tabular-nums">
@@ -385,16 +481,29 @@ function ProviderAllowanceCard({
             </dl>
           ) : null}
           <p className="text-2xs text-muted-foreground">
-            Credits {usage.totals.creditBalance ?? "—"} · Daily{" "}
-            {formatTokenCount(usage.totals.latestDailyTokens)} tokens · Updated{" "}
+            {totalsLabel ? `${totalsLabel} · ` : ""}
+            Updated{" "}
             {new Date(usage.fetchedAt * 1000).toLocaleTimeString([], {
               hour: "numeric",
               minute: "2-digit",
             })}
           </p>
+          <p className="text-2xs text-muted-foreground">
+            {sourceLabel}
+            {usage.dataConfidence === "percentOnly" ? " · Percentage only" : ""}
+          </p>
         </div>
       ) : (
-        <div className="mt-3 rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
+        <div
+          className={cn(
+            "mt-3 rounded-md p-2 text-xs",
+            state === "error"
+              ? "bg-destructive/10 text-destructive"
+              : "bg-muted/45 text-muted-foreground",
+          )}
+          data-state={state}
+          data-testid={`provider-usage-message-${provider}`}
+        >
           {errorMessage ??
             (supported
               ? `Reading ${productLabel} allowance…`
@@ -403,4 +512,33 @@ function ProviderAllowanceCard({
       )}
     </section>
   );
+}
+
+function providerSourceLabel(usage: ProviderUsageSnapshot | undefined): string {
+  if (usage?.sourceDetail === "codexAppServer") {
+    return "Personal subscription allowance · Codex app-server";
+  }
+  if (usage?.sourceDetail === "grokCliBilling") {
+    return "Grok Build consumer allowance · Local Grok CLI";
+  }
+  if (usage?.sourceDetail === "grokWebBilling") {
+    return "Grok Build consumer allowance · Local Grok CLI account · Experimental reader";
+  }
+  return "Personal subscription allowance";
+}
+
+function providerTotalsLabel(
+  usage: ProviderUsageSnapshot | undefined,
+): string | null {
+  if (!usage) return null;
+  const values = [];
+  if (usage.totals.creditBalance !== null) {
+    values.push(`Credits ${usage.totals.creditBalance}`);
+  }
+  if (usage.totals.latestDailyTokens !== null) {
+    values.push(
+      `Daily ${formatTokenCount(usage.totals.latestDailyTokens)} tokens`,
+    );
+  }
+  return values.length > 0 ? values.join(" · ") : null;
 }

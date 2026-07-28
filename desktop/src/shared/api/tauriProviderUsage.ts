@@ -31,6 +31,14 @@ export type ProviderUsageSnapshot = {
   vendor: "openai" | "anthropic" | "xai";
   product: string;
   source: "personalAllowance";
+  sourceDetail?: "codexAppServer" | "grokCliBilling" | "grokWebBilling";
+  dataConfidence?: "exact" | "percentOnly" | "estimated" | "unknown";
+  freshness?: "fresh" | "stale";
+  account?: {
+    label?: string | null;
+    accountType?: string | null;
+    loginMethod?: string | null;
+  } | null;
   planType: string | null;
   windows: ProviderUsageWindow[];
   totals: {

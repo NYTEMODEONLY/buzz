@@ -170,6 +170,7 @@ export function SectionActionsMenu({
   manualSortEnabled?: boolean;
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const skipFocusRestoreRef = useRef(false);
   const showSectionManagement = Boolean(onRenameSection || onDeleteSection);
   const showSort = Boolean(sortMode && onSortModeChange);
 
@@ -191,8 +192,11 @@ export function SectionActionsMenu({
       <DropdownMenuContent
         align="end"
         onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          triggerRef.current?.blur();
+          if (skipFocusRestoreRef.current) {
+            event.preventDefault();
+            triggerRef.current?.blur();
+            skipFocusRestoreRef.current = false;
+          }
         }}
       >
         {hasUnread && onMarkAllRead ? (
@@ -202,7 +206,16 @@ export function SectionActionsMenu({
           </DropdownMenuItem>
         ) : null}
         {onNewMessage ? (
-          <DropdownMenuItem onSelect={() => deferMenuAction(onNewMessage)}>
+          <DropdownMenuItem
+            onSelect={() => {
+              // The deferred New Message route focuses its recipient input.
+              // Do not let Radix restore focus to the sidebar trigger after
+              // that route mounts. Other menu/dialog flows retain the normal
+              // accessible trigger-focus restoration.
+              skipFocusRestoreRef.current = true;
+              deferMenuAction(onNewMessage);
+            }}
+          >
             <Plus className="h-4 w-4" />
             <span>{newMessageLabel ?? "New message"}</span>
           </DropdownMenuItem>

@@ -23,11 +23,15 @@ test("providerUsageErrorMessage never exposes raw app-server details", () => {
   assert.equal(
     providerUsageErrorMessage(
       "codex_not_authenticated: alice@example.com should not render",
+      "Codex",
     ),
     "Sign in with Codex to show usage",
   );
   assert.equal(
-    providerUsageErrorMessage("unknown failure with local path /Users/alice"),
+    providerUsageErrorMessage(
+      "unknown failure with local path /Users/alice",
+      "Codex",
+    ),
     "Usage temporarily unavailable",
   );
 });

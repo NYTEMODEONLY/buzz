@@ -24,7 +24,7 @@ const FALLBACK_CAPABILITIES: ProviderUsageCapability[] = [
     id: "grok",
     name: "Grok",
     availability: "unsupported",
-    detail: "Consumer allowance is available in Grok Settings",
+    detail: "Grok Build allowance reader unavailable",
   },
 ];
 
@@ -58,7 +58,7 @@ function ProviderChoice({
       <span>
         <span className="block text-sm font-medium">{capability.name}</span>
         <span className="mt-1 block text-xs text-muted-foreground">
-          {available ? "Allowance available" : capability.detail}
+          {available ? "Allowance reader ready" : capability.detail}
         </span>
       </span>
     </div>

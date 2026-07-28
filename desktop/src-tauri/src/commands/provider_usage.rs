@@ -5,9 +5,13 @@ use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+mod grok;
+mod grok_proto;
+
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_FRAME_BYTES: usize = 256 * 1024;
 const MAX_TOTAL_BYTES: usize = 2 * 1024 * 1024;
+const MAX_JSONL_FRAMES: usize = 1_024;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum ProviderUsageId {
@@ -70,12 +74,30 @@ pub struct ProviderUsageTotals {
 
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+/// Non-secret account context. Email addresses and credential identifiers are
+/// intentionally not exported by this adapter.
+pub struct ProviderUsageAccount {
+    label: Option<String>,
+    account_type: Option<String>,
+    login_method: Option<String>,
+}
+
+#[derive(Debug, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 /// A normalized local personal-allowance snapshot safe to expose over IPC.
 pub struct ProviderUsageSnapshot {
     provider: &'static str,
     vendor: &'static str,
     product: &'static str,
     source: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_detail: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data_confidence: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    freshness: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    account: Option<ProviderUsageAccount>,
     plan_type: Option<String>,
     windows: Vec<ProviderUsageWindow>,
     totals: ProviderUsageTotals,
@@ -90,6 +112,8 @@ pub async fn list_provider_usage_capabilities() -> Vec<ProviderUsageCapability> 
     } else {
         ("not_installed", "Install and sign in to the Codex CLI")
     };
+    let grok_availability =
+        grok::capability(crate::managed_agents::resolve_command("grok").is_some());
 
     vec![
         ProviderUsageCapability {
@@ -107,8 +131,8 @@ pub async fn list_provider_usage_capabilities() -> Vec<ProviderUsageCapability> 
         ProviderUsageCapability {
             id: ProviderUsageId::Grok.as_str(),
             name: "Grok",
-            availability: "unsupported",
-            detail: "Consumer allowance is available in Grok Settings",
+            availability: grok_availability.0,
+            detail: grok_availability.1,
         },
     ]
 }
@@ -127,7 +151,12 @@ pub async fn get_provider_usage(provider: String) -> Result<ProviderUsageSnapsho
                 .map_err(|_| "codex_usage_task_failed".to_string())?
         }
         ProviderUsageId::Claude => Err("claude_usage_unsupported".to_string()),
-        ProviderUsageId::Grok => Err("grok_usage_unsupported".to_string()),
+        ProviderUsageId::Grok => {
+            let grok_path = crate::managed_agents::resolve_command("grok");
+            tokio::task::spawn_blocking(move || grok::read_provider_usage(grok_path.as_deref()))
+                .await
+                .map_err(|_| "grok_usage_task_failed".to_string())?
+        }
     }
 }
 
@@ -254,20 +283,35 @@ fn post_initialize_requests() -> [Value; 3] {
 }
 
 fn read_bounded_jsonl(stdout: impl Read, sender: mpsc::Sender<Result<String, String>>) {
+    read_bounded_jsonl_with_codes(
+        stdout,
+        sender,
+        "codex_app_server_read_failed",
+        "codex_usage_response_too_large",
+    );
+}
+
+fn read_bounded_jsonl_with_codes(
+    stdout: impl Read,
+    sender: mpsc::Sender<Result<String, String>>,
+    read_error: &'static str,
+    size_error: &'static str,
+) {
     let mut reader = BufReader::new(stdout);
     let mut total = 0_usize;
+    let mut frames = 0_usize;
     let mut frame = Vec::new();
     loop {
         let buffer = match reader.fill_buf() {
             Ok(buffer) => buffer,
             Err(_) => {
-                let _ = sender.send(Err("codex_app_server_read_failed".to_string()));
+                let _ = sender.send(Err(read_error.to_string()));
                 break;
             }
         };
         if buffer.is_empty() {
             if !frame.is_empty() {
-                let _ = sender.send(Err("codex_app_server_read_failed".to_string()));
+                let _ = sender.send(Err(read_error.to_string()));
             }
             break;
         }
@@ -276,7 +320,7 @@ fn read_bounded_jsonl(stdout: impl Read, sender: mpsc::Sender<Result<String, Str
         let bytes = newline.map_or(buffer.len(), |position| position + 1);
         total = total.saturating_add(bytes);
         if frame.len().saturating_add(bytes) > MAX_FRAME_BYTES || total > MAX_TOTAL_BYTES {
-            let _ = sender.send(Err("codex_usage_response_too_large".to_string()));
+            let _ = sender.send(Err(size_error.to_string()));
             break;
         }
         frame.extend_from_slice(&buffer[..bytes]);
@@ -288,6 +332,11 @@ fn read_bounded_jsonl(stdout: impl Read, sender: mpsc::Sender<Result<String, Str
         while matches!(frame.last(), Some(b'\n' | b'\r')) {
             frame.pop();
         }
+        frames += 1;
+        if frames > MAX_JSONL_FRAMES {
+            let _ = sender.send(Err(size_error.to_string()));
+            break;
+        }
         let completed = std::mem::take(&mut frame);
         match String::from_utf8(completed) {
             Ok(line) => {
@@ -296,7 +345,7 @@ fn read_bounded_jsonl(stdout: impl Read, sender: mpsc::Sender<Result<String, Str
                 }
             }
             Err(_) => {
-                let _ = sender.send(Err("codex_app_server_read_failed".to_string()));
+                let _ = sender.send(Err(read_error.to_string()));
                 break;
             }
         }
@@ -426,6 +475,10 @@ fn normalize_usage(
         vendor: "openai",
         product: "codex",
         source: "personalAllowance",
+        source_detail: Some("codexAppServer"),
+        data_confidence: Some("exact"),
+        freshness: Some("fresh"),
+        account: None,
         plan_type: rate_limits_result
             .get("rateLimits")
             .and_then(|snapshot| snapshot.get("planType"))
@@ -528,6 +581,13 @@ fn stop_child(child: &mut Child) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn grpc_frame(flags: u8, payload: &[u8]) -> Vec<u8> {
+        let mut bytes = vec![flags];
+        bytes.extend((payload.len() as u32).to_be_bytes());
+        bytes.extend(payload);
+        bytes
+    }
 
     #[test]
     fn initializes_before_account_reads_without_experimental_flag() {
@@ -721,5 +781,189 @@ mod tests {
             receiver.recv().unwrap().unwrap_err(),
             "codex_usage_response_too_large"
         );
+    }
+
+    #[test]
+    fn bounded_reader_rejects_frame_amplification() {
+        let input = vec![b'\n'; MAX_JSONL_FRAMES + 1];
+        let (sender, receiver) = mpsc::channel();
+        read_bounded_jsonl(input.as_slice(), sender);
+        assert_eq!(
+            receiver.into_iter().last().unwrap().unwrap_err(),
+            "codex_usage_response_too_large"
+        );
+    }
+
+    #[test]
+    fn grok_rpc_requests_use_acp_shape_and_unescaped_method() {
+        assert_eq!(
+            grok::initialize_request()
+                .pointer("/params/protocolVersion")
+                .and_then(Value::as_str),
+            Some("1")
+        );
+        let billing = grok::billing_request().to_string();
+        assert!(billing.contains("\"x.ai/billing\""));
+        assert!(!billing.contains("\\/"));
+    }
+
+    #[test]
+    fn classifies_grok_rpc_errors_without_forwarding_sensitive_details() {
+        assert_eq!(
+            grok::classify_rpc_error(
+                &json!({"code": -32601, "message": "Method not found: x.ai/billing"})
+            ),
+            "grok_usage_method_unavailable"
+        );
+        assert_eq!(
+            grok::classify_rpc_error(
+                &json!({"code": -32000, "message": "Authentication required for person@example.com"})
+            ),
+            "grok_not_authenticated"
+        );
+        assert_eq!(
+            grok::classify_rpc_error(&json!({"code": -32000, "message": "deadline exceeded"})),
+            "grok_usage_temporarily_unavailable"
+        );
+    }
+
+    #[test]
+    fn parses_grok_oidc_auth_without_exporting_email_or_token() {
+        let credentials = grok::parse_credentials(
+            br#"{
+                "https://accounts.x.ai/sign-in": {
+                    "key": "legacy-secret",
+                    "auth_mode": "session"
+                },
+                "https://auth.x.ai::client": {
+                    "key": "oidc-secret",
+                    "email": "private@example.com",
+                    "auth_mode": "oidc",
+                    "principal_type": "User",
+                    "expires_at": "2099-01-01T00:00:00Z"
+                }
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(credentials.access_token, "oidc-secret");
+        assert_eq!(credentials.login_method.as_deref(), Some("SuperGrok"));
+        assert_eq!(credentials.account_type.as_deref(), Some("User"));
+        assert!(!credentials.is_expired(1_800_000_000));
+        let serialized = serde_json::to_string(&credentials.public_account()).unwrap();
+        assert!(!serialized.contains("private@example.com"));
+        assert!(!serialized.contains("oidc-secret"));
+    }
+
+    #[test]
+    fn grok_auth_falls_back_to_legacy_and_rejects_missing_tokens() {
+        let credentials = grok::parse_credentials(
+            br#"{
+                "https://auth.x.ai::client": {"auth_mode": "oidc"},
+                "https://accounts.x.ai/sign-in": {
+                    "key": "legacy-secret",
+                    "auth_mode": "session"
+                }
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(credentials.access_token, "legacy-secret");
+        assert_eq!(credentials.login_method.as_deref(), Some("session"));
+        assert_eq!(
+            grok::parse_credentials(br#"{"https://auth.x.ai::client":{"auth_mode":"oidc"}}"#)
+                .err()
+                .unwrap(),
+            "grok_not_authenticated"
+        );
+        assert_eq!(
+            grok::parse_credentials(b"not-json").err().unwrap(),
+            "grok_auth_invalid"
+        );
+    }
+
+    #[test]
+    fn expired_grok_auth_is_detected_locally() {
+        let credentials = grok::parse_credentials(
+            br#"{
+                "https://auth.x.ai::client": {
+                    "key": "expired-secret",
+                    "expires_at": "2020-01-01T00:00:00Z"
+                }
+            }"#,
+        )
+        .unwrap();
+        assert!(credentials.is_expired(unix_timestamp()));
+    }
+
+    #[test]
+    fn normalizes_grok_cli_billing_as_exact_usage() {
+        let usage = grok::normalize_cli_usage(
+            &json!({
+                "billingCycle": {
+                    "billingPeriodStart": "2026-07-01T00:00:00Z",
+                    "billingPeriodEnd": "2026-07-31T00:00:00Z"
+                },
+                "monthlyLimit": {"val": 10_000},
+                "usage": {"totalUsed": {"val": 1_749}}
+            }),
+            123,
+        )
+        .unwrap();
+
+        assert_eq!(usage.provider, "grok");
+        assert_eq!(usage.source_detail, Some("grokCliBilling"));
+        assert_eq!(usage.data_confidence, Some("exact"));
+        assert_eq!(usage.windows[0].used_percent, 17);
+        assert_eq!(usage.windows[0].remaining_percent, 83);
+        assert_eq!(usage.windows[0].duration_minutes, Some(43_200));
+        assert_eq!(usage.windows[0].label, "Monthly");
+    }
+
+    #[test]
+    fn rejects_invalid_grok_cli_billing_math() {
+        assert_eq!(
+            grok::normalize_cli_usage(
+                &json!({
+                    "monthlyLimit": {"val": 0},
+                    "usage": {"totalUsed": {"val": 1}}
+                }),
+                1
+            )
+            .unwrap_err(),
+            "grok_usage_invalid_response"
+        );
+    }
+
+    #[test]
+    fn parses_and_decodes_grok_grpc_trailers() {
+        let trailer = grpc_frame(
+            0x80,
+            b"grpc-status: 16\r\ngrpc-message: token%20expired\r\n",
+        );
+        assert_eq!(
+            grok_proto::trailer_status(&trailer),
+            Some((16, "token expired".to_string()))
+        );
+        assert_eq!(
+            grok::classify_grpc_status(Some(16), "token expired", false).unwrap_err(),
+            "grok_not_authenticated"
+        );
+    }
+
+    #[test]
+    fn classifies_team_and_transient_grok_grpc_failures_separately() {
+        assert_eq!(
+            grok::classify_grpc_status(Some(9), "No personal team.", true).unwrap_err(),
+            "grok_team_usage_unsupported"
+        );
+        assert_eq!(
+            grok::classify_grpc_status(Some(9), "No personal team.", false).unwrap_err(),
+            "grok_usage_rpc_failed"
+        );
+        assert_eq!(
+            grok::classify_grpc_status(Some(14), "unavailable", false).unwrap_err(),
+            "grok_usage_temporarily_unavailable"
+        );
+        assert!(grok::classify_grpc_status(Some(0), "", false).is_ok());
     }
 }

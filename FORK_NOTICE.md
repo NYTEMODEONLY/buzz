@@ -7,6 +7,8 @@ supported by Block.
 
 The upstream Apache-2.0 license and notices remain intact. NYTEMODE EDITION
 attribution is additive and does not replace upstream authorship or trademarks.
+Additional attribution for adapted provider-allowance behavior is recorded in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 Use this repository for NYTEMODE EDITION behavior. Report an issue upstream
 only after reproducing it on an unmodified upstream build.

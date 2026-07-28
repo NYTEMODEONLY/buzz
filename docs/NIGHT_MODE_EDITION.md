@@ -28,11 +28,50 @@ they must never be replayed into the main database or used to provision agents.
 | Detached activity | Advertises observer support for detached work | Small capability patch over the upstream ACP runtime |
 | Branding and updates | Night Mode footer, website, releases, and updater trust | Isolated in `shared/nightModeEdition.ts` and release configuration |
 
-Grok is detected from Zero's active runtime and shown next to Codex. The
-consumer Grok client does not currently expose a supported remaining-allowance
-reader, so NYTEMODE EDITION reports `allowance unavailable` instead of
-inventing a percentage. Provider cards are independent: one provider failing
-does not hide another provider's balance.
+Grok is detected from Zero's active runtime and shown next to Codex. Provider
+cards are independent: one provider failing does not hide another provider's
+balance.
+
+## Provider allowance architecture
+
+The allowance UI follows a provider-neutral contract:
+
+- Active provider families are inferred from effective running-agent runtime,
+  command, provider, and model metadata. A missing persisted `provider` field
+  does not hide a Codex or Grok harness.
+- Each provider has its own capability state, query/cache key, refresh action,
+  snapshot, source label, confidence, and error boundary.
+- The visible state machine separates loading, ready, stale last-good data,
+  sign-in required, not installed, unsupported/unavailable, and a genuine
+  supported-reader failure.
+- A missing percentage is neutral. Red is reserved for an actual failed fetch;
+  amber identifies stale last-good data.
+- Different providers and reset windows are never combined into a synthetic
+  global percentage.
+
+Codex personal allowance is read from the signed-in local Codex app-server.
+Grok Build first attempts the local CLI billing method. Because released Grok
+CLI versions may not expose that method, NYTEMODE EDITION may make a
+best-effort, tightly bounded request to Grok's experimental account-billing
+surface using only the existing `~/.grok/auth.json` bearer session. It never
+imports browser cookies, reads Keychain credentials, stores a copied token, or
+logs authorization/raw responses. If that experimental path is unavailable,
+the UI reports a neutral unavailable state.
+
+xAI API team billing, observed turn tokens, and Grok Build consumer allowance
+are different products. API credits or local token counts must never be shown
+as Zero's remaining consumer allowance. Team identities without a consumer
+allowance surface remain identity-only.
+
+Snapshot account labels are display-only. Provider/account cache identity must
+remain provider-scoped, and any future multi-account implementation must use an
+opaque account identifier rather than email as its cache key.
+
+This design was informed by the provider descriptors, ordered fetch strategies,
+account isolation, last-good refresh behavior, and compact display semantics in
+[CodexBar](https://github.com/steipete/CodexBar/tree/02b4ba278c81e667d2e5587d0ceb9eaf1d83f854).
+NYTEMODE EDITION is an independent Rust/TypeScript implementation and does not
+copy CodexBar's Swift UI.
 
 ## Native-first maintenance
 
@@ -63,3 +102,13 @@ Treat these as separate gates:
    and mentioned by exact pubkey, and replies are read back.
 6. Update: a signed N to N+1 install is exercised before automatic updates are
    described as production-ready.
+
+For provider allowance changes, verification also includes:
+
+- simultaneous Codex and Grok cards;
+- provider-isolated refresh and failure behavior;
+- neutral unsupported/auth/not-installed states;
+- retained stale data after a transient refresh failure;
+- reset-window, source, confidence, account-label, and updated-time display;
+- tests proving credentials and raw provider responses do not enter browser
+  storage or relay traffic.
