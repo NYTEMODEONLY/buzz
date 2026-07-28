@@ -91,7 +91,7 @@ test("provider allowance stays compact, theme-native, and accessible", async ({
   const indicator = topChrome.getByTestId("sidebar-provider-usage");
   await expect(indicator).toHaveAttribute(
     "aria-label",
-    /Open AI usage details\. Codex Pro: 48% remaining/,
+    /Open AI usage details\. Codex Pro: 48% left/,
   );
   await expect(indicator).toContainText(/Codex\s*48%/);
 

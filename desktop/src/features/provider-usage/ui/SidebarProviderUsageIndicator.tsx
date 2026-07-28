@@ -161,7 +161,7 @@ export function SidebarProviderUsageIndicator({
     [];
   const triggerLabel =
     remainingPercent !== undefined
-      ? `${planLabel}: ${remainingPercent}% remaining`
+      ? `${planLabel}: ${remainingPercent}% left`
       : (errorMessage ?? `Loading ${productLabel} allowance`);
 
   async function refreshAllowance() {
