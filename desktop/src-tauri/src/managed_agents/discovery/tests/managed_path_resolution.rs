@@ -1,6 +1,17 @@
 use crate::managed_agents::discovery::{clear_resolve_cache, resolve_command};
 
 #[test]
+fn hermes_preset_uses_the_standard_install_launcher() {
+    let preset = super::super::preset_harness_definitions()
+        .into_iter()
+        .find(|definition| definition.id == "hermes")
+        .expect("Hermes preset");
+
+    assert_eq!(preset.command, "hermes");
+    assert_eq!(preset.args, ["acp"]);
+}
+
+#[test]
 fn packaged_sidecar_directory_precedes_compile_time_workspace_outputs() {
     use std::path::PathBuf;
 
