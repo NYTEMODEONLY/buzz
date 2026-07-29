@@ -89,12 +89,10 @@ type RawSearchHit = {
   created_at: number;
   score: number;
 };
-
 type RawSearchResponse = {
   hits: RawSearchHit[];
   found: number;
 };
-
 type RawSendChannelMessageResult = {
   event_id: string;
   parent_event_id: string | null;
@@ -102,7 +100,6 @@ type RawSendChannelMessageResult = {
   depth: number;
   created_at: number;
 };
-
 type RawRelayAgent = {
   pubkey: string;
   name: string;
@@ -663,7 +660,6 @@ export async function removeReaction(
 ): Promise<void> {
   await invokeTauri("remove_reaction", { eventId, emoji });
 }
-
 export async function signRelayEvent(input: {
   kind: number;
   content: string;

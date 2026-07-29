@@ -197,13 +197,9 @@ impl ManagedAgentRecord {
 pub struct RelayAgentInfo {
     pub pubkey: String,
     pub name: String,
-    /// True when the current Buzz identity has a live kind:30177 declaration
-    /// for this exact agent pubkey. This remains authoritative across isolated
-    /// Desktop installs even when the local install does not hold the key.
+    /// Relay-backed ownership by the current Buzz identity.
     #[serde(default)]
     pub is_owner_managed: bool,
-    /// Persona coordinate carried by the current owner's kind:30177
-    /// declaration. Used to suppress a noncanonical same-persona local sibling.
     #[serde(default)]
     pub owner_managed_persona_id: Option<String>,
     pub agent_type: String,

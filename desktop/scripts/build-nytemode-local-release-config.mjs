@@ -14,10 +14,7 @@ const version = process.env.NYTEMODE_LOCAL_VERSION?.trim();
 const updaterEndpoint = process.env.BUZZ_UPDATER_ENDPOINT?.trim();
 const updaterPublicKey = readFileSync(updaterPublicKeyPath, "utf8").trim();
 
-if (
-  !version ||
-  !/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/.test(version)
-) {
+if (!version || !/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
   console.error(
     "Error: NYTEMODE_LOCAL_VERSION must be a complete SemVer version",
   );

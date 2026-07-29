@@ -288,9 +288,7 @@ export type RelayMember = {
 export type RelayAgent = {
   pubkey: string;
   name: string;
-  /** Relay-backed ownership by the current Buzz identity. */
   isOwnerManaged?: boolean;
-  /** Persona coordinate from the owner's exact managed-agent declaration. */
   ownerManagedPersonaId?: string | null;
   agentType: string;
   channels: string[];
@@ -300,7 +298,6 @@ export type RelayAgent = {
   respondTo: RespondToMode | null;
   respondToAllowlist: string[];
 };
-
 export type ManagedAgentRuntimeLifecycle =
   | "starting"
   | "listening"
@@ -308,7 +305,6 @@ export type ManagedAgentRuntimeLifecycle =
   | "ready"
   | "failed"
   | "stopped";
-
 export type ManagedAgentRuntimeStatus = {
   pubkey: string;
   /** Exact submitted descriptor, present only on startup reconcile results. */
