@@ -101,6 +101,7 @@ type MockManagedAgentRuntimeSeed = {
 type MockRelayAgentSeed = {
   pubkey: string;
   name: string;
+  ownerPubkey?: string | null;
   isOwnerManaged?: boolean;
   ownerManagedPersonaId?: string | null;
   agentType?: string;
@@ -740,6 +741,7 @@ type RawSendChannelMessageResponse = {
 type RawRelayAgent = {
   pubkey: string;
   name: string;
+  owner_pubkey?: string | null;
   is_owner_managed?: boolean;
   owner_managed_persona_id?: string | null;
   agent_type: string;
@@ -2118,6 +2120,7 @@ function resetMockRelayAgents(config?: E2eConfig) {
     mockRelayAgents.push({
       pubkey: seed.pubkey,
       name: seed.name,
+      owner_pubkey: seed.ownerPubkey ?? null,
       is_owner_managed: seed.isOwnerManaged ?? false,
       owner_managed_persona_id: seed.ownerManagedPersonaId ?? null,
       agent_type: seed.agentType ?? "goose",

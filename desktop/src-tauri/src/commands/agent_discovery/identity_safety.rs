@@ -19,6 +19,7 @@ pub(super) fn append_missing_owner_managed_agents(
         agents.push(RelayAgentInfo {
             pubkey: pubkey.clone(),
             name: managed.name.clone(),
+            owner_pubkey: None,
             is_owner_managed: true,
             owner_managed_persona_id: managed.persona_id.clone(),
             agent_type: "agent".to_string(),

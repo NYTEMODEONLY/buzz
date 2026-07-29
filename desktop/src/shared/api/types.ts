@@ -288,6 +288,7 @@ export type RelayMember = {
 export type RelayAgent = {
   pubkey: string;
   name: string;
+  ownerPubkey: string | null;
   isOwnerManaged?: boolean;
   ownerManagedPersonaId?: string | null;
   agentType: string;

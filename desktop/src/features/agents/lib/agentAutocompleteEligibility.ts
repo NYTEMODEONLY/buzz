@@ -64,7 +64,7 @@ export function getPinnedDmPeerPubkeys(
 export function relayAgentIsSharedWithUser(
   agent: Pick<
     RelayAgent,
-    "channelIds" | "isOwnerManaged" | "respondTo" | "respondToAllowlist"
+    "channelIds" | "ownerPubkey" | "respondTo" | "respondToAllowlist"
   >,
   sharedChannelIds: ReadonlySet<string>,
   currentPubkey?: string | null,
@@ -73,12 +73,16 @@ export function relayAgentIsSharedWithUser(
     ? normalizePubkey(currentPubkey)
     : null;
 
-  // `isOwnerManaged` is derived only from the current owner's exact,
-  // owner-authored kind:30177 declaration. It is not invocation authority by
-  // itself, but it proves this viewer is the owner named by an explicit
-  // `owner-only` directory policy.
-  if (agent.respondTo === "owner-only") {
-    return agent.isOwnerManaged === true;
+  // ownerPubkey is accepted only when Rust verifies the directory event's
+  // NIP-OA auth tag against the exact agent author. An owner-authored managed
+  // declaration is lineage evidence, but is deliberately not used here as
+  // invocation authority.
+  if (
+    agent.respondTo === "owner-only" &&
+    normalizedCurrentPubkey &&
+    agent.ownerPubkey
+  ) {
+    return normalizePubkey(agent.ownerPubkey) === normalizedCurrentPubkey;
   }
 
   if (agent.respondTo === "allowlist" && normalizedCurrentPubkey) {

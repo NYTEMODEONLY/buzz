@@ -77,6 +77,7 @@ type MockSearchProfileSeed = {
 type MockRelayAgentSeed = {
   pubkey: string;
   name: string;
+  ownerPubkey?: string | null;
   isOwnerManaged?: boolean;
   ownerManagedPersonaId?: string | null;
   agentType?: string;

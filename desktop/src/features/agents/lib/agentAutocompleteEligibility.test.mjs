@@ -163,11 +163,11 @@ test("relayAgentIsSharedWithUser: accepts allowlist agents for the current user"
   );
 });
 
-test("relayAgentIsSharedWithUser: accepts an exact owner-managed agent with owner-only policy", () => {
+test("relayAgentIsSharedWithUser: accepts a NIP-OA verified owner-only agent", () => {
   assert.equal(
     relayAgentIsSharedWithUser(
       makeAgent({
-        isOwnerManaged: true,
+        ownerPubkey: CURRENT_PUBKEY.toUpperCase(),
         respondTo: "owner-only",
         channelIds: [],
       }),
@@ -178,12 +178,13 @@ test("relayAgentIsSharedWithUser: accepts an exact owner-managed agent with owne
   );
 });
 
-test("relayAgentIsSharedWithUser: owner declaration alone does not grant invocation", () => {
+test("relayAgentIsSharedWithUser: owner declaration does not replace verified NIP-OA ownership", () => {
   assert.equal(
     relayAgentIsSharedWithUser(
       makeAgent({
         isOwnerManaged: true,
-        respondTo: null,
+        ownerPubkey: null,
+        respondTo: "owner-only",
         channelIds: [],
       }),
       new Set(),

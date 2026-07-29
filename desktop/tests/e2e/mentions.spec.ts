@@ -259,7 +259,7 @@ test("@ trigger does not let a known DM bypass missing invocation policy", async
   await expect(dropdown.getByText("alice")).toHaveCount(0);
 });
 
-test("@ trigger admits exact owner-managed ALICE under owner-only policy", async ({
+test("@ trigger admits NIP-OA verified ALICE under owner-only policy", async ({
   page,
 }) => {
   await installMockBridge(page, {
@@ -268,7 +268,7 @@ test("@ trigger admits exact owner-managed ALICE under owner-only policy", async
       {
         pubkey: TEST_IDENTITIES.alice.pubkey,
         name: "ALICE",
-        isOwnerManaged: true,
+        ownerPubkey: MOCK_VIEWER_PUBKEY,
         respondTo: "owner-only",
         status: "online",
       },

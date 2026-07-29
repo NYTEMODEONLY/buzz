@@ -197,6 +197,9 @@ impl ManagedAgentRecord {
 pub struct RelayAgentInfo {
     pub pubkey: String,
     pub name: String,
+    /// NIP-OA verified owner from the agent-authored directory event.
+    #[serde(default)]
+    pub owner_pubkey: Option<String>,
     /// Relay-backed ownership by the current Buzz identity.
     #[serde(default)]
     pub is_owner_managed: bool,
