@@ -339,4 +339,194 @@ test.describe("sidebar categories and manual channel order", () => {
     expect(Object.keys(stored.sections.assignments)).toHaveLength(2);
     expect(stored.order.groups[`section:${section.id}`]).toHaveLength(2);
   });
+
+  test("Move up/down reorders a category across Channels and persists after reload", async ({
+    page,
+  }) => {
+    await openApp(page);
+
+    // Create two categories so the movable lane is [Work, Home, Channels].
+    for (const name of ["Work", "Home"]) {
+      await page.getByText("Channels", { exact: true }).hover();
+      await page.getByTestId("section-actions-channels").click();
+      await page.getByRole("menuitem", { name: "New category..." }).click();
+      await page.getByPlaceholder("Category name").fill(name);
+      await page.getByRole("button", { name: "Create" }).click();
+      await expect(page.getByText(name, { exact: true })).toBeVisible();
+    }
+
+    const sections = await page.evaluate((key) => {
+      const value = JSON.parse(window.localStorage.getItem(key) ?? "null");
+      return value.sections as { id: string; name: string }[];
+    }, SECTION_KEY);
+    const work = sections.find((s) => s.name === "Work");
+    const home = sections.find((s) => s.name === "Home");
+    expect(work && home).toBeTruthy();
+    if (!work || !home) throw new Error("categories missing");
+
+    // Move Work down past Home → [Home, Work, Channels]
+    await page.getByTestId(`section-title-${work.id}`).hover();
+    await page.getByTestId(`section-actions-${work.id}`).click();
+    await page.getByRole("menuitem", { name: "Move down" }).click();
+    await waitForMenusToClose(page);
+
+    // Move Channels up past Work → [Home, Channels, Work]
+    await page.getByText("Channels", { exact: true }).hover();
+    await page.getByTestId("section-actions-channels").click();
+    await page.getByRole("menuitem", { name: "Move up" }).click();
+    await waitForMenusToClose(page);
+
+    const afterMove = await page.evaluate((key) => {
+      return JSON.parse(window.localStorage.getItem(key) ?? "null") as {
+        channelsBlockIndex?: number;
+        sections: { id: string; name: string; order: number }[];
+      };
+    }, SECTION_KEY);
+    expect(afterMove.channelsBlockIndex).toBe(1);
+    const ordered = afterMove.sections
+      .slice()
+      .sort((a, b) => a.order - b.order)
+      .map((s) => s.name);
+    expect(ordered).toEqual(["Home", "Work"]);
+
+    // Delete Home (before Channels): must keep Channels above Work.
+    await page.getByTestId(`section-title-${home.id}`).hover();
+    await page.getByTestId(`section-actions-${home.id}`).click();
+    await page.getByRole("menuitem", { name: "Delete category" }).click();
+    await page.getByRole("button", { name: "Delete" }).click();
+    await expect(page.getByTestId(`section-title-${home.id}`)).toHaveCount(0);
+
+    const afterDelete = await page.evaluate((key) => {
+      return JSON.parse(window.localStorage.getItem(key) ?? "null") as {
+        channelsBlockIndex?: number;
+        sections: { id: string; name: string }[];
+      };
+    }, SECTION_KEY);
+    expect(afterDelete.sections.map((s) => s.name)).toEqual(["Work"]);
+    expect(afterDelete.channelsBlockIndex).toBe(0);
+
+    await page.reload();
+    await page.getByTestId("channel-general").click();
+    const afterReload = await page.evaluate((key) => {
+      return JSON.parse(window.localStorage.getItem(key) ?? "null") as {
+        channelsBlockIndex?: number;
+        sections: { id: string; name: string }[];
+      };
+    }, SECTION_KEY);
+    expect(afterReload.channelsBlockIndex).toBe(0);
+    expect(afterReload.sections.map((s) => s.name)).toEqual(["Work"]);
+  });
+
+  test("category block drag handle reorders relative to Channels", async ({
+    page,
+  }) => {
+    await openApp(page);
+    await page.getByText("Channels", { exact: true }).hover();
+    await page.getByTestId("section-actions-channels").click();
+    await page.getByRole("menuitem", { name: "New category..." }).click();
+    await page.getByPlaceholder("Category name").fill("Work");
+    await page.getByRole("button", { name: "Create" }).click();
+
+    const section = await page.evaluate((key) => {
+      const value = JSON.parse(window.localStorage.getItem(key) ?? "null");
+      return value.sections[0] as { id: string };
+    }, SECTION_KEY);
+
+    const categoryHandle = page.getByTestId(`block-drag-${section.id}`);
+    const channelsHandle = page.getByTestId("block-drag-__channels__");
+    await page.getByTestId(`section-title-${section.id}`).hover();
+    await expect(categoryHandle).toHaveCSS("opacity", "1");
+    await page.mouse.move(0, 0);
+    await expect(categoryHandle).toHaveCSS("opacity", "0");
+
+    // Drag Work below Channels → [Channels, Work]
+    await dragOver(page, categoryHandle, channelsHandle);
+    await expect
+      .poll(async () => {
+        const stored = await page.evaluate((key) => {
+          return JSON.parse(window.localStorage.getItem(key) ?? "null") as {
+            channelsBlockIndex?: number;
+          };
+        }, SECTION_KEY);
+        return stored.channelsBlockIndex;
+      })
+      .toBe(0);
+
+    await page.reload();
+    await page.getByTestId("channel-general").click();
+    await expect
+      .poll(async () => {
+        const stored = await page.evaluate((key) => {
+          return JSON.parse(window.localStorage.getItem(key) ?? "null") as {
+            channelsBlockIndex?: number;
+          };
+        }, SECTION_KEY);
+        return stored.channelsBlockIndex;
+      })
+      .toBe(0);
+  });
+
+  test("keyboard users can move a category block across Channels and persist after reload", async ({
+    page,
+  }) => {
+    await openApp(page);
+    await page.getByText("Channels", { exact: true }).hover();
+    await page.getByTestId("section-actions-channels").click();
+    await page.getByRole("menuitem", { name: "New category..." }).click();
+    await page.getByPlaceholder("Category name").fill("Work");
+    await page.getByRole("button", { name: "Create" }).click();
+
+    const section = await page.evaluate((key) => {
+      const value = JSON.parse(window.localStorage.getItem(key) ?? "null");
+      return value.sections[0] as { id: string };
+    }, SECTION_KEY);
+
+    // Default layout: [Work, Channels]. Keyboard-move Work down past Channels.
+    const categoryHandle = page.getByTestId(`block-drag-${section.id}`);
+    const categoryShell = page.locator(`[data-dnd-block="${section.id}"]`);
+    await page.mouse.move(0, 0);
+    await expect(categoryHandle).toHaveCSS("opacity", "0");
+    await categoryHandle.focus();
+    await expect(categoryHandle).toHaveCSS("opacity", "1");
+
+    await categoryHandle.press("Space");
+    // opacity-30 is applied to the section body inside the shell, not the
+    // data-dnd-block wrapper (unlike channel rows). Live-region text only
+    // retains the latest announcement, so do not require "Picked up".
+    await expect(categoryShell.locator(".opacity-30")).toBeVisible();
+    // KeyboardSensor attaches its document keydown listener on the next task.
+    await page.evaluate(
+      () => new Promise<void>((resolve) => window.setTimeout(resolve, 0)),
+    );
+    await categoryHandle.press("ArrowDown");
+    await expect(page.getByRole("status")).toContainText("is over Channels");
+    await categoryHandle.press("Space");
+    await expect(page.getByRole("status")).toContainText(
+      "Moved category Work to Channels.",
+    );
+
+    await expect
+      .poll(async () => {
+        const stored = await page.evaluate((key) => {
+          return JSON.parse(window.localStorage.getItem(key) ?? "null") as {
+            channelsBlockIndex?: number;
+          };
+        }, SECTION_KEY);
+        return stored.channelsBlockIndex;
+      })
+      .toBe(0);
+
+    await page.reload();
+    await page.getByTestId("channel-general").click();
+    await expect
+      .poll(async () => {
+        const stored = await page.evaluate((key) => {
+          return JSON.parse(window.localStorage.getItem(key) ?? "null") as {
+            channelsBlockIndex?: number;
+          };
+        }, SECTION_KEY);
+        return stored.channelsBlockIndex;
+      })
+      .toBe(0);
+  });
 });

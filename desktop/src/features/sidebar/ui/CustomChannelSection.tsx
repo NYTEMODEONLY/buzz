@@ -48,10 +48,12 @@ import { ChannelMenuButton } from "@/features/sidebar/ui/SidebarSection";
 import { ChannelContextMenuItems } from "@/features/sidebar/ui/ChannelContextMenu";
 import { deferMenuAction } from "@/features/sidebar/ui/sidebarMenuHelpers";
 import {
+  BlockDragHandle,
   DraggableChannelRow,
   DroppableSectionBody,
   DroppableUngroupedBody,
   SortableChannelContext,
+  SortableChannelsBlockShell,
   SortableSectionShell,
 } from "@/features/sidebar/ui/SidebarDnd";
 import {
@@ -170,6 +172,7 @@ export function SectionActionsMenu({
   manualSortEnabled?: boolean;
 }) {
   const showSectionManagement = Boolean(onRenameSection || onDeleteSection);
+  const showMove = Boolean(onMoveSectionUp || onMoveSectionDown);
   const showSort = Boolean(sortMode && onSortModeChange);
 
   return (
@@ -220,7 +223,7 @@ export function SectionActionsMenu({
             <span>New category...</span>
           </DropdownMenuItem>
         ) : null}
-        {showSectionManagement ? (
+        {showSectionManagement || showMove ? (
           <>
             {onRenameSection ? (
               <DropdownMenuItem
@@ -345,6 +348,11 @@ export function ChannelGroupSection({
   browseLabel,
   createLabel,
   draggable,
+  blockId,
+  isFirstBlock,
+  isLastBlock,
+  onMoveBlockUp,
+  onMoveBlockDown,
   groupClassName,
   hasUnread,
   isCollapsed,
@@ -389,6 +397,12 @@ export function ChannelGroupSection({
   browseLabel?: string;
   createLabel?: string;
   draggable?: boolean;
+  /** When set, the whole group is a movable sidebar block (Channels lane). */
+  blockId?: string;
+  isFirstBlock?: boolean;
+  isLastBlock?: boolean;
+  onMoveBlockUp?: () => void;
+  onMoveBlockDown?: () => void;
   groupClassName?: string;
   isCollapsed: boolean;
   isActiveChannel: boolean;
@@ -521,7 +535,11 @@ export function ChannelGroupSection({
 
   const sectionContent = (
     <SidebarGroup
-      className={cn("group/sidebar-section select-none", groupClassName)}
+      className={cn(
+        "group/sidebar-section select-none",
+        groupClassName,
+        blockId && "relative",
+      )}
       data-section-actions-open={actionsMenuOpen || undefined}
     >
       <ChannelSectionHeader
@@ -552,6 +570,10 @@ export function ChannelGroupSection({
               onCreate={onCreateClick}
               createLabel={createLabel}
               onCreateCategory={onCreateCategory}
+              onMoveSectionUp={onMoveBlockUp}
+              onMoveSectionDown={onMoveBlockDown}
+              isFirstSection={isFirstBlock}
+              isLastSection={isLastBlock}
               sortMode={sortMode}
               onSortModeChange={onSortModeChange}
               manualSortEnabled={manualSortEnabled}
@@ -565,10 +587,35 @@ export function ChannelGroupSection({
     </SidebarGroup>
   );
 
-  return draggable ? (
+  const droppable = draggable ? (
     <DroppableUngroupedBody>{sectionContent}</DroppableUngroupedBody>
   ) : (
     sectionContent
+  );
+
+  if (!blockId) return droppable;
+
+  return (
+    <SortableChannelsBlockShell blockId={blockId}>
+      {({ dragHandleProps, isDragging }) => (
+        <div
+          className={cn(
+            "group/sidebar-section relative",
+            isDragging && "opacity-30",
+          )}
+        >
+          <div className="absolute left-0 top-1 z-10">
+            <BlockDragHandle
+              dragHandleProps={dragHandleProps}
+              isDragging={isDragging}
+              label={title}
+              testId={`block-drag-${blockId}`}
+            />
+          </div>
+          {droppable}
+        </div>
+      )}
+    </SortableChannelsBlockShell>
   );
 }
 
@@ -666,10 +713,18 @@ export function CustomChannelSection({
           >
             <ContextMenu>
               <ContextMenuTrigger asChild>
-                <div className="relative" {...dragHandleProps}>
+                <div className="relative">
+                  <div className="absolute left-0 top-1/2 z-10 -translate-y-1/2">
+                    <BlockDragHandle
+                      dragHandleProps={dragHandleProps}
+                      isDragging={isDragging}
+                      label={section.name}
+                      testId={`block-drag-${section.id}`}
+                    />
+                  </div>
                   <SidebarGroupLabel
                     asChild
-                    className={section.icon ? undefined : "pl-8"}
+                    className={section.icon ? "pl-7" : "pl-8"}
                   >
                     <button
                       aria-controls={contentId}
