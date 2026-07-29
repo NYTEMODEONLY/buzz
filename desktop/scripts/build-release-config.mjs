@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 // Write a tauri.release.conf.json with release-only overrides.
@@ -29,6 +29,10 @@ const updaterEndpoint = process.env.BUZZ_UPDATER_ENDPOINT;
 const releaseDistribution = process.env.BUZZ_RELEASE_DISTRIBUTION;
 const nytemodeUpdaterEndpoint =
   "https://github.com/NYTEMODEONLY/buzz/releases/download/buzz-nytemode-latest/latest.json";
+const nytemodePublicKey = readFileSync(
+  resolve(process.cwd(), "../.release/nytemode-updater.pub"),
+  "utf8",
+).trim();
 
 const missing = [];
 if (!updaterPubkey) missing.push("BUZZ_UPDATER_PUBLIC_KEY");
@@ -44,6 +48,12 @@ if (releaseDistribution === "nytemode") {
   if (updaterEndpoint !== nytemodeUpdaterEndpoint) {
     console.error(
       `Error: nytemode edition updater endpoint must be ${nytemodeUpdaterEndpoint}`,
+    );
+    process.exit(1);
+  }
+  if (updaterPubkey !== nytemodePublicKey) {
+    console.error(
+      "Error: nytemode edition updater public key does not match .release/nytemode-updater.pub",
     );
     process.exit(1);
   }

@@ -9,16 +9,18 @@ branch. `block/buzz` is source input, never an automatic binary update.
   this ref, never `origin/main`.
 - `origin/main`: current Block development input. It can be newer than the
   latest release and is not automatically a release target.
-- `automation/upstream-sync`: disposable proposal branch created from
-  `fork/main` with one reviewed upstream tag or commit merged.
+- `automation/upstream-vX.Y.Z`: disposable proposal branch created from
+  `fork/main` with one exact reviewed official desktop tag merged.
 - `backup/*`: immutable rollback refs for major migrations.
 
 ## Routine
 
 1. Fetch upstream tags and identify the exact Block release commit.
-2. Create `automation/upstream-sync` from `fork/main`, merge the exact release
-   tag, and open or refresh a pull request into `fork/main`. Post-release
-   `origin/main` commits require a separate review.
+2. Create `automation/upstream-vX.Y.Z` from `fork/main`, merge the exact
+   release tag, and open a pull request into `fork/main`. The daily
+   `Propose upstream sync` workflow does this only for the latest stable GitHub
+   desktop release. It never merges mutable `origin/main`, never force-updates
+   a reviewed proposal, and fails for explicit conflict resolution.
 3. Review the feature matrix in `NYTEMODE_EDITION.md`.
 4. Compare each custom patch with upstream. Retire patches whose behavior is
    now native.
@@ -57,3 +59,8 @@ The `Release nytemode edition for macOS` workflow enforces this boundary.
 It intentionally fails before building unless all fork-owned updater and Apple
 signing secrets are configured. Never weaken that preflight to produce an
 untrusted public release.
+
+For local updater engineering without public distribution, use the isolated
+loopback lane in `NYTEMODE_RELEASING.md`. A loopback build is not Developer ID
+signed/notarized and cannot satisfy the public-release or production-update
+gate.

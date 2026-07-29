@@ -66,5 +66,9 @@ identity.key
 # mesh-llm build cache
 .cache/
 
+# Generated Tauri release overlays (contain machine-local endpoints)
+desktop/src-tauri/tauri.release.conf.json
+desktop/src-tauri/tauri.local-release.conf.json
+
 # Helm dependency tarballs — regenerable from Chart.lock via `helm dependency build`
 deploy/charts/*/charts/*.tgz

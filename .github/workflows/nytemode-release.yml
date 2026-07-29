@@ -1,6 +1,9 @@
 name: Release nytemode edition for macOS
 
 on:
+  push:
+    tags:
+      - 'nytemode-v[0-9]*'
   workflow_dispatch:
     inputs:
       version:
@@ -20,12 +23,28 @@ jobs:
     if: github.repository == 'NYTEMODEONLY/buzz'
     runs-on: macos-14
     timeout-minutes: 90
+    environment: nytemode-production
     env:
-      VERSION: ${{ inputs.version }}
-      RELEASE_TAG: nytemode-v${{ inputs.version }}
       UPDATE_RELEASE: buzz-nytemode-latest
       UPDATE_ENDPOINT: https://github.com/NYTEMODEONLY/buzz/releases/download/buzz-nytemode-latest/latest.json
     steps:
+      - name: Resolve exact release tag and version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            RELEASE_TAG="$GITHUB_REF_NAME"
+            VERSION="${GITHUB_REF_NAME#nytemode-v}"
+          else
+            VERSION="$INPUT_VERSION"
+            RELEASE_TAG="nytemode-v${INPUT_VERSION}"
+          fi
+          [[ "$RELEASE_TAG" == "nytemode-v${VERSION}" ]]
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 0
@@ -48,7 +67,7 @@ jobs:
           for name in \
             APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_ID APPLE_PASSWORD \
             APPLE_SIGNING_IDENTITY APPLE_TEAM_ID BUZZ_UPDATER_PUBLIC_KEY \
-            TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+            TAURI_SIGNING_PRIVATE_KEY
           do
             [[ -n "${!name:-}" ]] || {
               echo "::error::Required secret $name is missing"
@@ -131,7 +150,6 @@ jobs:
           SKIPPY_LLAMA_AUTO_BUILD: "0"
           TAURI_BUNDLER_DMG_IGNORE_CI: "true"
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           cd desktop
           pnpm tauri build \
@@ -169,20 +187,39 @@ jobs:
         run: |
           set -euo pipefail
           TAG="$RELEASE_TAG"
+          [[ "$(git rev-parse "$TAG^{commit}")" == "$GITHUB_SHA" ]]
           gh release create "$TAG" \
             --verify-tag \
+            --draft \
             --title "Buzz nytemode edition $TAG" \
-            --notes "Signed nytemode edition build from $GITHUB_SHA" \
-            2>/dev/null || true
-          gh release upload "$TAG" "$DMG" --clobber
-          gh release create "$UPDATE_RELEASE" \
-            --prerelease \
-            --title "Buzz nytemode edition Auto-Update" \
-            --notes "Rolling signed updater artifacts." \
-            2>/dev/null || true
-          gh release upload "$UPDATE_RELEASE" "$ARCHIVE" "$SIG_PATH" --clobber
+            --notes "Signed nytemode edition build from $GITHUB_SHA"
+          shasum -a 256 "$DMG" "$ARCHIVE" "$SIG_PATH" > SHA256SUMS
+          jq -n \
+            --arg version "$VERSION" \
+            --arg source_sha "$GITHUB_SHA" \
+            --arg source_tag "$TAG" \
+            --arg bundle_id "xyz.block.buzz.app" \
+            --arg updater_key_sha256 "$(tr -d '\r\n' < .release/nytemode-updater.pub | shasum -a 256 | awk '{print $1}')" \
+            '{
+              version: $version,
+              source_sha: $source_sha,
+              source_tag: $source_tag,
+              bundle_id: $bundle_id,
+              updater_public_key_sha256: $updater_key_sha256,
+              platform: "darwin-aarch64"
+            }' > provenance.json
+          gh release upload "$TAG" \
+            "$DMG" "$ARCHIVE" "$SIG_PATH" SHA256SUMS provenance.json
+          gh release edit "$TAG" --draft=false --latest
+
+          if ! gh release view "$UPDATE_RELEASE" >/dev/null 2>&1; then
+            gh release create "$UPDATE_RELEASE" \
+              --prerelease \
+              --title "Buzz nytemode edition Auto-Update" \
+              --notes "Rolling signed updater manifest. Artifacts live on immutable versioned releases."
+          fi
           SIGNATURE=$(cat "$SIG_PATH")
-          ARCHIVE_URL="https://github.com/NYTEMODEONLY/buzz/releases/download/$UPDATE_RELEASE/$ARCHIVE_NAME"
+          ARCHIVE_URL="https://github.com/NYTEMODEONLY/buzz/releases/download/$TAG/$ARCHIVE_NAME"
           jq -n \
             --arg version "$VERSION" \
             --arg notes "Buzz nytemode edition $VERSION" \
@@ -200,4 +237,6 @@ jobs:
                 }
               }
             }' > latest.json
+          # Promote the mutable feed pointer last, after the immutable release
+          # and all of its signed assets are publicly available.
           gh release upload "$UPDATE_RELEASE" latest.json --clobber

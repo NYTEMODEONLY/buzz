@@ -3,7 +3,7 @@ name: Propose upstream sync
 on:
   workflow_dispatch:
   schedule:
-    - cron: "23 13 * * 1"
+    - cron: "23 13 * * *"
 
 permissions:
   contents: write
@@ -22,34 +22,51 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Merge current upstream into proposal branch
+      - name: Resolve latest official desktop release
         env:
-          BRANCH: automation/upstream-sync
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=$(gh api repos/block/buzz/releases/latest --jq .tag_name)
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "::error::Latest Block release tag '$TAG' is not stable desktop SemVer"
+            exit 1
+          }
+          echo "UPSTREAM_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "BRANCH=automation/upstream-$TAG" >> "$GITHUB_ENV"
+
+      - name: Merge exact official release into a new proposal branch
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote add upstream https://github.com/block/buzz.git
-          git fetch upstream main
-          if git merge-base --is-ancestor upstream/main HEAD; then
+          git fetch --no-tags upstream "refs/tags/$UPSTREAM_TAG:refs/tags/$UPSTREAM_TAG"
+          UPSTREAM_SHA=$(git rev-parse "$UPSTREAM_TAG^{commit}")
+          echo "UPSTREAM_SHA=$UPSTREAM_SHA" >> "$GITHUB_ENV"
+          if git merge-base --is-ancestor "$UPSTREAM_SHA" HEAD; then
             echo "already_current=true" >> "$GITHUB_ENV"
             exit 0
           fi
-          git switch -C "$BRANCH"
-          git merge --no-edit upstream/main
-          git push --force-with-lease origin "$BRANCH"
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "proposal_exists=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          git switch -c "$BRANCH"
+          if ! git merge --no-edit "$UPSTREAM_SHA"; then
+            echo "::error::Exact release $UPSTREAM_TAG ($UPSTREAM_SHA) conflicts with fork/main"
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
+          git push origin "HEAD:refs/heads/$BRANCH"
 
       - name: Open or refresh review pull request
-        if: env.already_current != 'true'
+        if: env.already_current != 'true' && env.proposal_exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh pr create \
             --base main \
-            --head automation/upstream-sync \
-            --title "chore: sync current block/buzz main" \
-            --body-file docs/UPSTREAM_SYNC.md \
-            2>/dev/null || \
-          gh pr edit automation/upstream-sync \
-            --title "chore: sync current block/buzz main" \
+            --head "$BRANCH" \
+            --title "chore: integrate block/buzz $UPSTREAM_TAG" \
             --body-file docs/UPSTREAM_SYNC.md

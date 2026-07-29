@@ -52,10 +52,13 @@ if node "$verify_version" 999.999.999; then
 fi
 
 mkdir -p "$tmp/release-config/src-tauri"
+mkdir -p "$tmp/.release"
+cp "$repo_root/.release/nytemode-updater.pub" "$tmp/.release/nytemode-updater.pub"
+updater_public_key=$(tr -d '\n' < "$repo_root/.release/nytemode-updater.pub")
 (
   cd "$tmp/release-config"
   BUZZ_RELEASE_DISTRIBUTION=nytemode \
-    BUZZ_UPDATER_PUBLIC_KEY=test-public-key \
+    BUZZ_UPDATER_PUBLIC_KEY="$updater_public_key" \
     BUZZ_UPDATER_ENDPOINT=https://github.com/NYTEMODEONLY/buzz/releases/download/buzz-nytemode-latest/latest.json \
     node "$repo_root/desktop/scripts/build-release-config.mjs"
 )
@@ -63,7 +66,7 @@ mkdir -p "$tmp/release-config/src-tauri"
 if (
   cd "$tmp/release-config"
   BUZZ_RELEASE_DISTRIBUTION=nytemode \
-    BUZZ_UPDATER_PUBLIC_KEY=test-public-key \
+    BUZZ_UPDATER_PUBLIC_KEY="$updater_public_key" \
     BUZZ_UPDATER_ENDPOINT=https://github.com/block/buzz/releases/download/buzz-desktop-latest/latest.json \
     node "$repo_root/desktop/scripts/build-release-config.mjs"
 ); then
@@ -71,7 +74,8 @@ if (
   exit 1
 fi
 
-grep -Fq 'RELEASE_TAG: nytemode-v${{ inputs.version }}' "$workflow"
+grep -Fq "'nytemode-v[0-9]*'" "$workflow"
+grep -Fq 'environment: nytemode-production' "$workflow"
 grep -Fq 'verify-release-ref.sh nytemode-v "$VERSION"' "$workflow"
 grep -Fq 'verify-release-version.mjs "$VERSION"' "$workflow"
 grep -Fq 'BUZZ_RELEASE_DISTRIBUTION: nytemode' "$workflow"
@@ -81,9 +85,24 @@ grep -Fq -- '--locked' "$workflow"
 grep -Fq 'TAG="$RELEASE_TAG"' "$workflow"
 grep -Fq -- '--verify-tag' "$workflow"
 grep -Fq 'persist-credentials: false' "$workflow"
+grep -Fq -- '--draft' "$workflow"
+grep -Fq 'SHA256SUMS' "$workflow"
+grep -Fq 'provenance.json' "$workflow"
+grep -Fq 'gh release edit "$TAG" --draft=false' "$workflow"
+grep -Fq 'releases/download/$TAG/$ARCHIVE_NAME' "$workflow"
 
 if grep -Eq 'cargo update|set-version-from-tag\.mjs|refs/heads/main|TAG="v\$VERSION"' "$workflow"; then
   echo "nytemode release workflow still mutates dependencies or accepts a branch/upstream tag" >&2
+  exit 1
+fi
+
+if grep -F 'gh release upload "$TAG"' "$workflow" | grep -Fq -- '--clobber'; then
+  echo "nytemode versioned release permits mutable asset replacement" >&2
+  exit 1
+fi
+
+if grep -F 'gh release create "$TAG"' "$workflow" | grep -Fq '|| true'; then
+  echo "nytemode versioned release permits mutable or swallowed publication" >&2
   exit 1
 fi
 

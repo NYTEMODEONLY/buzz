@@ -242,6 +242,22 @@ desktop-release-build target="aarch64-apple-darwin":
     pnpm install
     cd {{desktop_dir}} && pnpm tauri build --features mesh-llm --target {{target}}
 
+# Validate and install the loopback-only nytemode updater feed service.
+nytemode-local-update-init:
+    scripts/nytemode-local-updater.sh init
+
+# Build and stage an updater-enabled local nytemode app.
+nytemode-local-update-build version:
+    scripts/nytemode-local-updater.sh build {{version}}
+
+# Atomically expose a staged local nytemode version to installed test clients.
+nytemode-local-update-publish version:
+    scripts/nytemode-local-updater.sh publish {{version}}
+
+# Show local updater feed and service status without changing app state.
+nytemode-local-update-status:
+    scripts/nytemode-local-updater.sh status
+
 # Run desktop checks suitable for CI / pre-push
 desktop-ci: desktop-check desktop-test desktop-tauri-fmt-check desktop-build desktop-tauri-check desktop-tauri-test
 
