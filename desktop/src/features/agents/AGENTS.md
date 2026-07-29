@@ -119,6 +119,14 @@ with a TypeScript lookup table or an id comparison in a component.
    from forward-looking external discovery, and allow a later live declaration
    to restore the same pubkey. External hosts retain their runtime, memory,
    provider, credentials, and skills.
+11. **Catalog visibility is community-scoped relay state, never a global
+    definition field.** `AgentDefinition.shared` is only the active
+    relay+owner projection returned to the UI. Durable heads and pending
+    publications live in the scoped retention database, and explicit share
+    toggles await relay acceptance before the UI claims that an agent was
+    published or removed. A queued update must stay visibly queued, and the
+    catalog itself must render only relay-confirmed publications — never an
+    optimistic local persona.
 
 ## The tests that enforce this
 
@@ -142,6 +150,8 @@ with a TypeScript lookup table or an id comparison in a component.
 - `lib/agentAutocompleteEligibility.test.mjs` — owner-only canonical agent
   visibility and relay-agent mention eligibility.
 - Rust: `runtime_metadata_env_vars` tests pin spawn-time key application.
+- Rust: persona sharing/retention tests pin relay+owner scoping, durable
+  enqueue errors, relay rejection/unavailability, and accepted publication.
 
 ## Keep this file true
 

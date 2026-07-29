@@ -103,6 +103,7 @@ export default defineConfig({
         "**/project-pr-review.spec.ts",
         "**/persona-model-combobox-screenshots.spec.ts",
         "**/drafts-screenshots.spec.ts",
+        "**/drafts-all-fix-screenshots.spec.ts",
         "**/inbox-refactor-screenshots.spec.ts",
         "**/buzz-theme-screenshots.spec.ts",
         "**/channel-sort.spec.ts",
@@ -127,6 +128,7 @@ export default defineConfig({
         "**/harness-management.spec.ts",
         "**/harness-catalog-screenshots.spec.ts",
         "**/provider-usage.spec.ts",
+        "**/inline-custom-harness.spec.ts",
       ],
       use: {
         ...devices["Desktop Chrome"],
