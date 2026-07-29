@@ -55,6 +55,11 @@ export function useSidebarChannelOrganization({
       if (mode !== "manual") {
         return sortChannelsForSidebar(groupChannels, mode);
       }
+      // Implicit Manual (default, no user reorder yet): deterministic A–Z.
+      // First reorder / explicit Manual choice enables + seeds persistence.
+      if (!manualOrder.isManual(group)) {
+        return sortChannelsForSidebar(groupChannels, "alpha");
+      }
       const orderedIds = manualOrder.orderIds(
         group,
         groupChannels.map((channel) => channel.id),

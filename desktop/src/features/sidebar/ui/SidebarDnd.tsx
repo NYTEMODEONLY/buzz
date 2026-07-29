@@ -25,6 +25,8 @@ import * as React from "react";
 
 import { cn } from "@/shared/lib/cn";
 import type { ChannelSortGroupKey } from "@/features/sidebar/lib/channelSortPreference";
+/** Sentinel id for the Channels block in SortableContext / block order. */
+export { CHANNELS_BLOCK_ID } from "@/features/sidebar/lib/channelSectionsHelpers";
 
 export type DndChannelData = {
   type: "channel";
@@ -32,6 +34,8 @@ export type DndChannelData = {
   groupKey: ChannelSortGroupKey;
 };
 export type DndSectionData = { type: "section"; sectionId: string };
+/** Built-in uncategorized Channels block in the unified movable lane. */
+export type DndChannelsBlockData = { type: "channels-block" };
 export type DndSectionDropData = {
   type: "section-drop";
   sectionId: string;
@@ -205,13 +209,81 @@ export function SortableSectionShell({
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} style={style} data-dnd-block={sectionId}>
       {children({
         dragHandleProps: { ...attributes, ...listeners },
         isDragging,
         style,
       })}
     </div>
+  );
+}
+
+export function SortableChannelsBlockShell({
+  blockId,
+  children,
+}: {
+  blockId: string;
+  children: (props: {
+    dragHandleProps: React.HTMLAttributes<HTMLElement>;
+    isDragging: boolean;
+  }) => React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: blockId,
+    data: { type: "channels-block" } satisfies DndChannelsBlockData,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-dnd-block={blockId}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+    >
+      {children({
+        dragHandleProps: { ...attributes, ...listeners },
+        isDragging,
+      })}
+    </div>
+  );
+}
+
+/** Quiet category/Channels block grip — mounted always; visible on hover/focus. */
+export function BlockDragHandle({
+  label,
+  dragHandleProps,
+  isDragging,
+  testId,
+}: {
+  label: string;
+  dragHandleProps: React.HTMLAttributes<HTMLElement>;
+  isDragging: boolean;
+  testId?: string;
+}) {
+  return (
+    <button
+      {...dragHandleProps}
+      aria-label={`Move ${label}`}
+      aria-roledescription="sortable category"
+      className={cn(
+        "flex h-7 w-7 touch-none cursor-grab items-center justify-center rounded-md text-sidebar-foreground/40 opacity-0 transition-opacity hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring group-hover/sidebar-section:opacity-100 group-focus-within/sidebar-section:opacity-100 active:cursor-grabbing [@media(hover:none)]:opacity-100",
+        isDragging && "opacity-100",
+      )}
+      data-testid={testId}
+      type="button"
+    >
+      <GripVertical aria-hidden="true" className="h-4 w-4" />
+    </button>
   );
 }
 
@@ -240,26 +312,32 @@ export function DragOverlaySection({ name }: { name: string }) {
 
 type SidebarDragItem =
   | { type: "channel"; channelId: string; channelName: string }
-  | { type: "section"; sectionId: string; sectionName: string };
+  | { type: "section"; sectionId: string; sectionName: string }
+  | { type: "channels-block" };
+
+const BLOCK_TYPES = new Set(["section", "channels-block"]);
 
 const sidebarCollisionDetection: CollisionDetection = (args) => {
   if (args.active.data.current?.type !== "channel") {
-    const sectionContainers = args.droppableContainers.filter((container) => {
+    // Category / Channels block reordering: collide with other movable blocks
+    // (not channel drop targets) so the pointer can cross the Channels lane.
+    const blockContainers = args.droppableContainers.filter((container) => {
       const type = container.data.current?.type;
       return (
         container.id !== args.active.id &&
-        (type === "section" || type === "section-drop")
+        type !== undefined &&
+        BLOCK_TYPES.has(type as string)
       );
     });
     if (args.pointerCoordinates) {
       return pointerWithin({
         ...args,
-        droppableContainers: sectionContainers,
+        droppableContainers: blockContainers,
       });
     }
     return closestCenter({
       ...args,
-      droppableContainers: sectionContainers,
+      droppableContainers: blockContainers,
     });
   }
   const collisions = args.pointerCoordinates
@@ -286,16 +364,17 @@ const sidebarCollisionDetection: CollisionDetection = (args) => {
 };
 
 export function SidebarDndContext({
-  sectionIds,
+  blockIds,
   channels,
   channelGroups,
   sections,
   children,
   manualGroupKeys,
   onMoveChannel,
-  onReorderSections,
+  onReorderBlocks,
 }: {
-  sectionIds: string[];
+  /** Unified movable lane: section ids + Channels sentinel. */
+  blockIds: string[];
   channels: { id: string; name: string }[];
   channelGroups: {
     key: ChannelSortGroupKey;
@@ -311,7 +390,7 @@ export function SidebarDndContext({
     targetGroup: ChannelSortGroupKey;
     overChannelId?: string;
   }) => void;
-  onReorderSections: (orderedIds: string[]) => void;
+  onReorderBlocks: (orderedBlockIds: string[]) => void;
 }) {
   const [activeDragItem, setActiveDragItem] =
     React.useState<SidebarDragItem | null>(null);
@@ -342,6 +421,8 @@ export function SidebarDndContext({
             sectionId: sec.id,
             sectionName: sec.name,
           });
+      } else if (data.type === "channels-block") {
+        setActiveDragItem({ type: "channels-block" });
       }
     },
     [channels, sections],
@@ -372,17 +453,26 @@ export function SidebarDndContext({
             ? { overChannelId: overData.channelId as string }
             : {}),
         });
-      } else if (activeData.type === "section") {
-        const overSectionId =
-          (overData?.sectionId as string | undefined) ?? (over.id as string);
-        const oldIdx = sectionIds.indexOf(active.id as string);
-        const newIdx = sectionIds.indexOf(overSectionId);
+      } else if (
+        activeData.type === "section" ||
+        activeData.type === "channels-block"
+      ) {
+        const overBlockId = (() => {
+          if (overData?.type === "section") return overData.sectionId as string;
+          if (overData?.type === "channels-block") return over.id as string;
+          // Fall back to sortable id (works for both block types).
+          if (blockIds.includes(over.id as string)) return over.id as string;
+          return undefined;
+        })();
+        if (!overBlockId) return;
+        const oldIdx = blockIds.indexOf(active.id as string);
+        const newIdx = blockIds.indexOf(overBlockId);
         if (oldIdx !== -1 && newIdx !== -1 && oldIdx !== newIdx) {
-          onReorderSections(arrayMove(sectionIds, oldIdx, newIdx));
+          onReorderBlocks(arrayMove(blockIds, oldIdx, newIdx));
         }
       }
     },
-    [sectionIds, manualGroupKeys, onMoveChannel, onReorderSections],
+    [blockIds, manualGroupKeys, onMoveChannel, onReorderBlocks],
   );
 
   const channelName = React.useCallback(
@@ -433,12 +523,20 @@ export function SidebarDndContext({
         return `category ${sectionName(String(data.sectionId))}`;
       }
       if (data?.type === "ungrouped") return "Channels";
+      if (data?.type === "channels-block") return "Channels";
       if (data?.type === "section") {
         return `category ${sectionName(String(data.sectionId))}`;
       }
       return "the sidebar";
     },
     [channelName, sectionName],
+  );
+  const blockLabel = React.useCallback(
+    (data: Record<string, unknown> | undefined) => {
+      if (data?.type === "channels-block") return "Channels";
+      return `category ${sectionName(String(data?.sectionId))}`;
+    },
+    [sectionName],
   );
 
   return (
@@ -447,17 +545,18 @@ export function SidebarDndContext({
         announcements: {
           onDragStart({ active }) {
             const data = active.data.current;
-            return data?.type === "channel"
-              ? `Picked up channel ${channelName(String(data.channelId))}.`
-              : `Picked up category ${sectionName(String(data?.sectionId))}.`;
+            if (data?.type === "channel") {
+              return `Picked up channel ${channelName(String(data.channelId))}.`;
+            }
+            return `Picked up ${blockLabel(data)}.`;
           },
           onDragOver({ active, over }) {
             const activeData = active.data.current;
-            return over
-              ? activeData?.type === "channel"
-                ? `Channel ${channelName(String(activeData.channelId))} is over ${describeChannelDestination(String(activeData.channelId), over)}.`
-                : `Category ${sectionName(String(activeData?.sectionId))} is over ${describeTarget(over)}.`
-              : "The item is no longer over a drop target.";
+            if (!over) return "The item is no longer over a drop target.";
+            if (activeData?.type === "channel") {
+              return `Channel ${channelName(String(activeData.channelId))} is over ${describeChannelDestination(String(activeData.channelId), over)}.`;
+            }
+            return `${blockLabel(activeData)} is over ${describeTarget(over)}.`;
           },
           onDragEnd({ active, over }) {
             const data = active.data.current;
@@ -473,13 +572,14 @@ export function SidebarDndContext({
               }
               return `Moved channel ${name} to ${describeChannelDestination(String(data.channelId), over)}.`;
             }
-            return `Moved category ${sectionName(String(data?.sectionId))} to ${describeTarget(over)}.`;
+            return `Moved ${blockLabel(data)} to ${describeTarget(over)}.`;
           },
           onDragCancel({ active }) {
             const data = active.data.current;
-            return data?.type === "channel"
-              ? `Cancelled moving channel ${channelName(String(data.channelId))}.`
-              : `Cancelled moving category ${sectionName(String(data?.sectionId))}.`;
+            if (data?.type === "channel") {
+              return `Cancelled moving channel ${channelName(String(data.channelId))}.`;
+            }
+            return `Cancelled moving ${blockLabel(data)}.`;
           },
         },
       }}
@@ -489,10 +589,7 @@ export function SidebarDndContext({
       onDragStart={handleDragStart}
       sensors={sensors}
     >
-      <SortableContext
-        items={sectionIds}
-        strategy={verticalListSortingStrategy}
-      >
+      <SortableContext items={blockIds} strategy={verticalListSortingStrategy}>
         {children}
       </SortableContext>
       <DragOverlay>
@@ -500,6 +597,8 @@ export function SidebarDndContext({
           <DragOverlayChannel name={activeDragItem.channelName} />
         ) : activeDragItem?.type === "section" ? (
           <DragOverlaySection name={activeDragItem.sectionName} />
+        ) : activeDragItem?.type === "channels-block" ? (
+          <DragOverlaySection name="Channels" />
         ) : null}
       </DragOverlay>
     </DndContext>

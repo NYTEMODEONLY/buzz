@@ -1,8 +1,6 @@
 // biome-ignore format: keep compact to stay within file size limit
 import * as React from "react";
 import { FeatureGate } from "@/shared/features";
-import { SidebarDndContext } from "@/features/sidebar/ui/SidebarDnd";
-
 import type { Community } from "@/features/communities/types";
 import { AddCommunityDialog } from "@/features/communities/ui/AddCommunityDialog";
 import type { AddCommunityPrefillRequest } from "@/features/communities/addCommunityPrefill";
@@ -15,10 +13,7 @@ import {
 import { useActiveWorkingChannelsById } from "@/features/sidebar/lib/useActiveWorkingChannelsById";
 import { useDmSidebarMetadata } from "@/features/sidebar/useDmSidebarMetadata";
 import { sortDmChannelsForSidebar } from "@/features/sidebar/lib/dmSidebarSort";
-import {
-  sectionSortGroupKey,
-  sortChannelsForSidebar,
-} from "@/features/sidebar/lib/channelSortPreference";
+import { sortChannelsForSidebar } from "@/features/sidebar/lib/channelSortPreference";
 import { useSidebarChannelOrganization } from "@/features/sidebar/lib/useSidebarChannelOrganization";
 import { useSidebarScrollLock } from "@/features/sidebar/lib/useSidebarScrollLock";
 import { isSidebarBackgroundTarget } from "@/features/sidebar/lib/sidebarBackgroundTarget";
@@ -39,10 +34,10 @@ import { MoreUnreadButton } from "@/features/sidebar/ui/MoreUnreadButton";
 import { SidebarSection } from "@/features/sidebar/ui/SidebarSection";
 import {
   ChannelGroupSection,
-  CustomChannelSection,
   SectionActionsMenu,
   SectionQuickAction,
 } from "@/features/sidebar/ui/CustomChannelSection";
+import { SidebarMovableLane } from "@/features/sidebar/ui/SidebarMovableLane";
 import { CreateChannelDialog } from "@/features/sidebar/ui/CreateChannelDialog";
 import { SidebarProfileCard } from "@/features/sidebar/ui/SidebarProfileCard";
 import { SidebarRelayConnectionCard } from "@/features/sidebar/ui/SidebarRelayConnectionCard";
@@ -347,12 +342,13 @@ export function AppSidebar({
   const {
     sections: channelSections,
     assignments: channelAssignments,
+    blockOrder,
     createSection,
     renameSection,
     deleteSection,
-    moveSectionUp,
-    moveSectionDown,
-    reorderSections,
+    moveBlockUp,
+    moveBlockDown,
+    reorderBlocks,
     assignChannel,
     unassignChannel,
   } = useChannelSections(currentPubkey, activeCommunity?.relayUrl);
@@ -373,7 +369,6 @@ export function AppSidebar({
     });
 
   const {
-    sectionIds,
     streamChannels,
     sectionBuckets,
     sortModeFor,
@@ -645,133 +640,57 @@ export function AppSidebar({
                       onLeaveChannel={requestLeaveChannel}
                     />
                   ) : null}
-                  <SidebarDndContext
+                  <SidebarMovableLane
+                    blockOrder={blockOrder}
+                    channelSections={channelSections}
+                    channelAssignments={channelAssignments}
+                    sectionBuckets={sectionBuckets}
                     channelGroups={channelGroups}
                     channels={channels}
-                    sections={channelSections}
-                    sectionIds={sectionIds}
                     manualGroupKeys={manualGroupKeys}
-                    onMoveChannel={handleMoveChannel}
-                    onReorderSections={reorderSections}
-                  >
-                    {channelSections.map((section, idx) => (
-                      <CustomChannelSection
-                        key={section.id}
-                        section={section}
-                        channels={sectionBuckets.bySection[section.id] ?? []}
-                        hasUnread={
-                          sectionBuckets.bySection[section.id]?.some((c) =>
-                            unreadChannelIds.has(c.id),
-                          ) ?? false
-                        }
-                        isCollapsed={collapsedSections[section.id] ?? false}
-                        isActiveChannel={selectedView === "channel"}
-                        activeWorkingByChannelId={activeWorkingByChannelId}
-                        selectedChannelId={selectedChannelId}
-                        unreadChannelCounts={unreadChannelCounts}
-                        unreadChannelIds={unreadChannelIds}
-                        sections={channelSections}
-                        assignments={channelAssignments}
-                        isFirst={idx === 0}
-                        isLast={idx === channelSections.length - 1}
-                        sortMode={sortModeFor(sectionSortGroupKey(section.id))}
-                        onSortModeChange={(mode) =>
-                          handleSortModeChange(
-                            sectionSortGroupKey(section.id),
-                            mode,
-                            sectionBuckets.bySection[section.id] ?? [],
-                          )
-                        }
-                        onToggleCollapsed={() =>
-                          toggleCollapsedSection(section.id)
-                        }
-                        onSelectChannel={onSelectChannel}
-                        onMarkChannelRead={onMarkChannelRead}
-                        onMarkChannelUnread={onMarkChannelUnread}
-                        onMarkSectionRead={() => {
-                          for (const channel of sectionBuckets.bySection[
-                            section.id
-                          ] ?? []) {
-                            onMarkChannelRead(
-                              channel.id,
-                              channel.lastMessageAt,
-                            );
-                          }
-                        }}
-                        onAssignChannel={assignChannel}
-                        onUnassignChannel={unassignChannel}
-                        onCreateSectionForChannel={
-                          handleCreateSectionForChannel
-                        }
-                        onCreateChannel={() =>
-                          handleCreateChannelInSection(section.id)
-                        }
-                        onRenameSection={() => setRenameSectionTarget(section)}
-                        onDeleteSection={() => setDeleteSectionTarget(section)}
-                        onMoveSectionUp={() => moveSectionUp(section.id)}
-                        onMoveSectionDown={() => moveSectionDown(section.id)}
-                        mutedChannelIds={mutedChannelIds}
-                        onMuteChannel={onMuteChannel}
-                        onUnmuteChannel={onUnmuteChannel}
-                        starredChannelIds={starredChannelIds}
-                        onStarChannel={onStarChannel}
-                        onUnstarChannel={onUnstarChannel}
-                        onDeleteChannel={requestDeleteChannel}
-                        onLeaveChannel={requestLeaveChannel}
-                      />
-                    ))}
-                    <ChannelGroupSection
-                      draggable
-                      hasUnread={unreadChannelIds.size > 0}
-                      isCollapsed={collapsedGroups.channels}
-                      isActiveChannel={selectedView === "channel"}
-                      activeWorkingByChannelId={activeWorkingByChannelId}
-                      items={sectionBuckets.unassigned}
-                      sortMode={sortModeFor("channels")}
-                      onSortModeChange={(mode) =>
-                        handleSortModeChange(
-                          "channels",
-                          mode,
-                          sectionBuckets.unassigned,
-                        )
-                      }
-                      actionsTestId="section-actions-channels"
-                      listTestId="stream-list"
-                      quickCreateLabel="Browse channels"
-                      onQuickCreateClick={() => onBrowseChannels?.()}
-                      showQuickCreate
-                      onMarkAllRead={onMarkAllChannelsRead}
-                      onMarkChannelRead={onMarkChannelRead}
-                      onMarkChannelUnread={onMarkChannelUnread}
-                      onSelectChannel={onSelectChannel}
-                      onToggleCollapsed={() => toggleCollapsedGroup("channels")}
-                      selectedChannelId={selectedChannelId}
-                      title="Channels"
-                      unreadChannelCounts={unreadChannelCounts}
-                      unreadChannelIds={unreadChannelIds}
-                      sections={channelSections}
-                      assignments={channelAssignments}
-                      onAssignChannel={assignChannel}
-                      onUnassignChannel={unassignChannel}
-                      onCreateSectionForChannel={handleCreateSectionForChannel}
-                      onCreateCategory={() =>
-                        setCreateSectionState({
-                          open: true,
-                          pendingChannelId: null,
-                        })
-                      }
-                      groupKey="channels"
-                      manualSortEnabled
-                      mutedChannelIds={mutedChannelIds}
-                      onMuteChannel={onMuteChannel}
-                      onUnmuteChannel={onUnmuteChannel}
-                      starredChannelIds={starredChannelIds}
-                      onStarChannel={onStarChannel}
-                      onUnstarChannel={onUnstarChannel}
-                      onDeleteChannel={requestDeleteChannel}
-                      onLeaveChannel={requestLeaveChannel}
-                    />
-                  </SidebarDndContext>
+                    collapsedSections={collapsedSections}
+                    collapsedChannels={collapsedGroups.channels}
+                    isActiveChannel={selectedView === "channel"}
+                    activeWorkingByChannelId={activeWorkingByChannelId}
+                    selectedChannelId={selectedChannelId}
+                    unreadChannelCounts={unreadChannelCounts}
+                    unreadChannelIds={unreadChannelIds}
+                    mutedChannelIds={mutedChannelIds}
+                    starredChannelIds={starredChannelIds}
+                    sortModeFor={sortModeFor}
+                    handleSortModeChange={handleSortModeChange}
+                    handleMoveChannel={handleMoveChannel}
+                    reorderBlocks={reorderBlocks}
+                    moveBlockUp={moveBlockUp}
+                    moveBlockDown={moveBlockDown}
+                    assignChannel={assignChannel}
+                    unassignChannel={unassignChannel}
+                    onSelectChannel={onSelectChannel}
+                    onMarkChannelRead={onMarkChannelRead}
+                    onMarkChannelUnread={onMarkChannelUnread}
+                    onMarkAllChannelsRead={onMarkAllChannelsRead}
+                    onBrowseChannels={onBrowseChannels}
+                    onCreateCategory={() =>
+                      setCreateSectionState({
+                        open: true,
+                        pendingChannelId: null,
+                      })
+                    }
+                    onCreateSectionForChannel={handleCreateSectionForChannel}
+                    onCreateChannelInSection={handleCreateChannelInSection}
+                    onRenameSection={setRenameSectionTarget}
+                    onDeleteSection={setDeleteSectionTarget}
+                    onToggleCollapsedSection={toggleCollapsedSection}
+                    onToggleCollapsedChannels={() =>
+                      toggleCollapsedGroup("channels")
+                    }
+                    onMuteChannel={onMuteChannel}
+                    onUnmuteChannel={onUnmuteChannel}
+                    onStarChannel={onStarChannel}
+                    onUnstarChannel={onUnstarChannel}
+                    onDeleteChannel={requestDeleteChannel}
+                    onLeaveChannel={requestLeaveChannel}
+                  />
                   <FeatureGate feature="forum">
                     <ChannelGroupSection
                       createLabel="New forum"

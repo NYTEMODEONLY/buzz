@@ -21,6 +21,51 @@ export type RemoteSections = {
   eventId: string;
 };
 
+/** NIP-78 plaintext shape. Optional channelsBlockIndex keeps v1 backward-readable. */
+export function serializeChannelSectionsPayload(store: ChannelSectionStore): {
+  version: 1;
+  sections: ChannelSection[];
+  assignments: Record<string, string>;
+  channelsBlockIndex?: number;
+} {
+  return {
+    version: 1,
+    sections: store.sections,
+    assignments: store.assignments,
+    ...(typeof store.channelsBlockIndex === "number"
+      ? { channelsBlockIndex: store.channelsBlockIndex }
+      : {}),
+  };
+}
+
+/** Equality used to skip no-op re-publishes (includes index-only moves). */
+export function channelSectionStoresEqual(
+  left: ChannelSectionStore,
+  right: ChannelSectionStore,
+): boolean {
+  if (left.sections.length !== right.sections.length) return false;
+  for (let i = 0; i < right.sections.length; i++) {
+    const a = left.sections[i] as ChannelSection | undefined;
+    const b = right.sections[i] as ChannelSection;
+    if (
+      !a ||
+      a.id !== b.id ||
+      a.name !== b.name ||
+      a.icon !== b.icon ||
+      a.order !== b.order
+    ) {
+      return false;
+    }
+  }
+  const leftKeys = Object.keys(left.assignments);
+  const rightKeys = Object.keys(right.assignments);
+  if (leftKeys.length !== rightKeys.length) return false;
+  for (const key of rightKeys) {
+    if (left.assignments[key] !== right.assignments[key]) return false;
+  }
+  return left.channelsBlockIndex === right.channelsBlockIndex;
+}
+
 async function decryptAndParse(
   event: RelayEvent,
 ): Promise<RemoteSections | null> {
@@ -119,29 +164,7 @@ export class ChannelSectionSyncManager {
 
   private isIdenticalToLastPublished(store: ChannelSectionStore): boolean {
     if (!this.lastPublishedStore) return false;
-    const lastSections = this.lastPublishedStore.sections;
-    const currentSections = store.sections;
-    if (lastSections.length !== currentSections.length) return false;
-    for (let i = 0; i < currentSections.length; i++) {
-      const last = lastSections[i] as ChannelSection | undefined;
-      const current = currentSections[i] as ChannelSection;
-      if (
-        !last ||
-        last.id !== current.id ||
-        last.name !== current.name ||
-        last.icon !== current.icon ||
-        last.order !== current.order
-      )
-        return false;
-    }
-    const lastAssignKeys = Object.keys(this.lastPublishedStore.assignments);
-    const currentAssignKeys = Object.keys(store.assignments);
-    if (lastAssignKeys.length !== currentAssignKeys.length) return false;
-    for (const key of currentAssignKeys) {
-      if (this.lastPublishedStore.assignments[key] !== store.assignments[key])
-        return false;
-    }
-    return true;
+    return channelSectionStoresEqual(this.lastPublishedStore, store);
   }
 
   private async doPublish(store: ChannelSectionStore): Promise<void> {
@@ -155,11 +178,9 @@ export class ChannelSectionSyncManager {
         this.pendingStore = null;
         return;
       }
-      const payload = {
-        version: 1,
-        sections: store.sections,
-        assignments: store.assignments,
-      };
+      // Optional channelsBlockIndex keeps v1 payloads backward-readable:
+      // older clients ignore the field; omit when unset so legacy layout wins.
+      const payload = serializeChannelSectionsPayload(store);
       const ciphertext = await nip44EncryptToSelf(JSON.stringify(payload));
       const createdAt = Math.max(
         Math.floor(Date.now() / 1_000),

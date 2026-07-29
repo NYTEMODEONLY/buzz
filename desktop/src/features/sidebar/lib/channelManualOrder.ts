@@ -127,6 +127,14 @@ export function moveManualChannel(
     store.groups[sourceGroup],
     sourceLiveIds,
   );
+  // First user reorder (or cross-group move) enables Manual for the
+  // affected groups so the preference persists without a mount-time seed.
+  const enableManual = (groups: string[]) => {
+    const next = new Set(store.manualGroups);
+    for (const group of groups) next.add(group);
+    return [...next];
+  };
+
   if (sourceGroup === targetGroup) {
     const oldIndex = sourceWithActive.indexOf(channelId);
     const newIndex = overChannelId
@@ -141,6 +149,7 @@ export function moveManualChannel(
     return {
       ...store,
       groups: { ...store.groups, [targetGroup]: target },
+      manualGroups: enableManual([targetGroup]),
     };
   }
   const source = sourceWithActive.filter((id) => id !== channelId);
@@ -156,7 +165,11 @@ export function moveManualChannel(
 
   const groups = { ...store.groups, [targetGroup]: target };
   groups[sourceGroup] = source;
-  return { ...store, groups };
+  return {
+    ...store,
+    groups,
+    manualGroups: enableManual([sourceGroup, targetGroup]),
+  };
 }
 
 export function mergeDeletedSectionOrder(

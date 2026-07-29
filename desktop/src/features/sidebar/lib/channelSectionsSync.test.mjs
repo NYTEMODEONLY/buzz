@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 
 import { relayClient } from "@/shared/api/relayClient";
-import { ChannelSectionSyncManager } from "./channelSectionsSync.ts";
+import {
+  ChannelSectionSyncManager,
+  channelSectionStoresEqual,
+  serializeChannelSectionsPayload,
+} from "./channelSectionsSync.ts";
 
 function makeStore(overrides = {}) {
   return {
@@ -270,4 +274,75 @@ test("destroy: cancelPendingPublish clears pendingStore", () => {
     globalThis.window.setTimeout = orig;
     globalThis.window.clearTimeout = origClear;
   }
+});
+
+// ─── channelsBlockIndex serialize + equality (pure helpers) ─────────────────
+
+test("serializeChannelSectionsPayload: includes optional channelsBlockIndex", () => {
+  const payload = serializeChannelSectionsPayload(
+    makeStore({
+      sections: [
+        { id: "a", name: "A", order: 0 },
+        { id: "b", name: "B", order: 1 },
+      ],
+      channelsBlockIndex: 1,
+    }),
+  );
+  assert.equal(payload.version, 1);
+  assert.equal(payload.channelsBlockIndex, 1);
+  assert.equal(payload.sections.length, 2);
+});
+
+test("serializeChannelSectionsPayload: omits channelsBlockIndex when unset", () => {
+  const payload = serializeChannelSectionsPayload(
+    makeStore({ sections: [{ id: "a", name: "A", order: 0 }] }),
+  );
+  assert.equal(Object.hasOwn(payload, "channelsBlockIndex"), false);
+});
+
+test("channelSectionStoresEqual: index-only change is not equal", () => {
+  const base = makeStore({
+    sections: [
+      { id: "a", name: "A", order: 0 },
+      { id: "b", name: "B", order: 1 },
+    ],
+    channelsBlockIndex: 2,
+  });
+  const moved = { ...base, channelsBlockIndex: 0 };
+  assert.equal(channelSectionStoresEqual(base, base), true);
+  assert.equal(
+    channelSectionStoresEqual(base, moved),
+    false,
+    "index-only block move must not compare equal",
+  );
+  assert.equal(channelSectionStoresEqual(moved, moved), true);
+});
+
+test("channelSectionStoresEqual: undefined index equals undefined, not 0", () => {
+  const legacy = makeStore({
+    sections: [{ id: "a", name: "A", order: 0 }],
+  });
+  const zero = makeStore({
+    sections: [{ id: "a", name: "A", order: 0 }],
+    channelsBlockIndex: 0,
+  });
+  assert.equal(channelSectionStoresEqual(legacy, legacy), true);
+  assert.equal(channelSectionStoresEqual(legacy, zero), false);
+});
+
+test("shouldApplyRemote: cold-start remote index wins when no pending local edit", () => {
+  const manager = new ChannelSectionSyncManager("pk-remote-index");
+  const remote = {
+    store: makeStore({
+      sections: [
+        { id: "a", name: "A", order: 0 },
+        { id: "b", name: "B", order: 1 },
+      ],
+      channelsBlockIndex: 0,
+    }),
+    createdAt: 50,
+    eventId: "remote-index",
+  };
+  assert.equal(manager.shouldApplyRemote(remote), true);
+  assert.equal(remote.store.channelsBlockIndex, 0);
 });
