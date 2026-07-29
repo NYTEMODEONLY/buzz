@@ -48,7 +48,22 @@ type SectionNameDialogProps = {
   isConfirmDisabled: (trimmed: string, icon: string) => boolean;
   getNameError?: (trimmed: string) => string | null;
   onConfirm: (value: SectionDialogValue) => void;
+  /**
+   * CSS selector for the control that opened this dialog (e.g. sidebar
+   * section-actions trigger). When the movable Channels/category lane
+   * remounts while the dialog is open, Radix's stored focus node can be
+   * detached; re-querying by selector restores focus to the live trigger.
+   */
+  restoreFocusSelector?: string | null;
 };
+
+function focusRestoreTarget(selector: string | null | undefined) {
+  if (!selector) return;
+  const node = document.querySelector(selector);
+  if (node instanceof HTMLElement) {
+    node.focus();
+  }
+}
 
 function SectionNameDialog({
   open,
@@ -61,11 +76,15 @@ function SectionNameDialog({
   isConfirmDisabled,
   getNameError,
   onConfirm,
+  restoreFocusSelector,
 }: SectionNameDialogProps) {
   const [name, setName] = React.useState(initialValue);
   const [icon, setIcon] = React.useState(initialIcon);
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  // Snap on open so parent can clear the prop during close without losing
+  // the target for onCloseAutoFocus.
+  const restoreFocusSelectorRef = React.useRef<string | null>(null);
   const inputId = React.useId();
   const errorId = `${inputId}-error`;
   const nameError = name.trim() ? getNameError?.(name.trim()) : null;
@@ -75,6 +94,7 @@ function SectionNameDialog({
       setPickerOpen(false);
       return;
     }
+    restoreFocusSelectorRef.current = restoreFocusSelector ?? null;
     setName(initialValue);
     setIcon(initialIcon);
     // Small delay to let dialog animation start before focusing
@@ -82,7 +102,7 @@ function SectionNameDialog({
       inputRef.current?.focus();
     }, 50);
     return () => globalThis.clearTimeout(timerId);
-  }, [open, initialValue, initialIcon]);
+  }, [open, initialValue, initialIcon, restoreFocusSelector]);
 
   function handleIconSelect(selectedIcon: string) {
     setIcon(selectedIcon);
@@ -102,7 +122,18 @@ function SectionNameDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent
+        className="max-w-sm"
+        onCloseAutoFocus={(event) => {
+          const selector = restoreFocusSelectorRef.current;
+          if (!selector) return;
+          // Prefer the live trigger over Radix's possibly-detached node
+          // after sortable block remounts (Channels wrapper / new category).
+          event.preventDefault();
+          focusRestoreTarget(selector);
+          restoreFocusSelectorRef.current = null;
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
@@ -197,6 +228,7 @@ export type CreateSectionDialogProps = {
   onOpenChange: (open: boolean) => void;
   onConfirm: (value: SectionDialogValue) => void;
   existingNames?: string[];
+  restoreFocusSelector?: string | null;
 };
 
 export function CreateSectionDialog({
@@ -204,6 +236,7 @@ export function CreateSectionDialog({
   onOpenChange,
   onConfirm,
   existingNames = [],
+  restoreFocusSelector,
 }: CreateSectionDialogProps) {
   const names = new Set(existingNames.map((name) => name.trim().toLowerCase()));
   return (
@@ -223,6 +256,7 @@ export function CreateSectionDialog({
           : null
       }
       onConfirm={onConfirm}
+      restoreFocusSelector={restoreFocusSelector}
     />
   );
 }

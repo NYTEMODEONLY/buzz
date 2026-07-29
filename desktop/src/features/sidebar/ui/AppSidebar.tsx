@@ -356,7 +356,9 @@ export function AppSidebar({
   const [createSectionState, setCreateSectionState] = React.useState<{
     open: boolean;
     pendingChannelId: string | null;
-  }>({ open: false, pendingChannelId: null });
+    /** Live trigger to refocus after dialog close (survives sortable remount). */
+    restoreFocusSelector: string | null;
+  }>({ open: false, pendingChannelId: null, restoreFocusSelector: null });
   const [renameSectionTarget, setRenameSectionTarget] =
     React.useState<ChannelSection | null>(null);
   const [deleteSectionTarget, setDeleteSectionTarget] =
@@ -415,7 +417,11 @@ export function AppSidebar({
 
   const handleCreateSectionForChannel = React.useCallback(
     (channelId: string) => {
-      setCreateSectionState({ open: true, pendingChannelId: channelId });
+      setCreateSectionState({
+        open: true,
+        pendingChannelId: channelId,
+        restoreFocusSelector: null,
+      });
     },
     [],
   );
@@ -429,7 +435,11 @@ export function AppSidebar({
       if (createSectionState.pendingChannelId) {
         assignChannel(createSectionState.pendingChannelId, section.id);
       }
-      setCreateSectionState({ open: false, pendingChannelId: null });
+      setCreateSectionState({
+        open: false,
+        pendingChannelId: null,
+        restoreFocusSelector: null,
+      });
     },
     [createSection, assignChannel, createSectionState.pendingChannelId],
   );
@@ -671,10 +681,16 @@ export function AppSidebar({
                     onMarkAllChannelsRead={onMarkAllChannelsRead}
                     onBrowseChannels={onBrowseChannels}
                     onCreateCategory={() =>
-                      setCreateSectionState({
-                        open: true,
-                        pendingChannelId: null,
-                      })
+                      // Wait a frame so the section-actions menu can restore
+                      // trigger focus before the dialog focus stack captures it.
+                      openModalNextFrame(() =>
+                        setCreateSectionState({
+                          open: true,
+                          pendingChannelId: null,
+                          restoreFocusSelector:
+                            '[data-testid="section-actions-channels"]',
+                        }),
+                      )
                     }
                     onCreateSectionForChannel={handleCreateSectionForChannel}
                     onCreateChannelInSection={handleCreateChannelInSection}
@@ -861,9 +877,14 @@ export function AppSidebar({
       <CreateSectionDialog
         existingNames={channelSections.map((section) => section.name)}
         open={createSectionState.open}
+        restoreFocusSelector={createSectionState.restoreFocusSelector}
         onOpenChange={(open) => {
           if (!open) {
-            setCreateSectionState({ open: false, pendingChannelId: null });
+            setCreateSectionState({
+              open: false,
+              pendingChannelId: null,
+              restoreFocusSelector: null,
+            });
           }
         }}
         onConfirm={handleCreateSectionConfirm}

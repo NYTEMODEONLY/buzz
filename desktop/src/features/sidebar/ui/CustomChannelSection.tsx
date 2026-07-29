@@ -239,7 +239,17 @@ export function SectionActionsMenu({
           </DropdownMenuItem>
         ) : null}
         {onCreateCategory ? (
-          <DropdownMenuItem onSelect={() => deferMenuAction(onCreateCategory)}>
+          <DropdownMenuItem
+            onSelect={() =>
+              deferMenuAction(() => {
+                // Pin focus on the live trigger before the dialog opens so
+                // Radix's focus stack (and our restore selector) target it —
+                // not a detached menu item — after Escape/cancel.
+                triggerRef.current?.focus();
+                onCreateCategory();
+              })
+            }
+          >
             <Plus className="h-4 w-4" />
             <span>New category...</span>
           </DropdownMenuItem>
