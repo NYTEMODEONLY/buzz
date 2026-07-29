@@ -109,9 +109,9 @@ fn main() {
     match (updater_public_key, updater_endpoint) {
         (Some(_), Some(_)) => println!("cargo:rustc-cfg=buzz_updater_enabled"),
         (None, None) => {}
-        _ => panic!(
-            "BUZZ_UPDATER_PUBLIC_KEY and BUZZ_UPDATER_ENDPOINT must be configured together"
-        ),
+        _ => {
+            panic!("BUZZ_UPDATER_PUBLIC_KEY and BUZZ_UPDATER_ENDPOINT must be configured together")
+        }
     }
 
     // Cargo test executables get no embedded Windows manifest (tauri_build
