@@ -10,7 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type * as React from "react";
 
 import type {
@@ -171,6 +171,8 @@ export function SectionActionsMenu({
   onSortModeChange?: (mode: ChannelSortMode) => void;
   manualSortEnabled?: boolean;
 }) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const skipFocusRestoreRef = useRef(false);
   const showSectionManagement = Boolean(onRenameSection || onDeleteSection);
   const showMove = Boolean(onMoveSectionUp || onMoveSectionDown);
   const showSort = Boolean(sortMode && onSortModeChange);
@@ -184,12 +186,22 @@ export function SectionActionsMenu({
           data-testid={testId}
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
+          ref={triggerRef}
           type="button"
         >
           <EllipsisVertical className="h-4 w-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent
+        align="end"
+        onCloseAutoFocus={(event) => {
+          if (skipFocusRestoreRef.current) {
+            event.preventDefault();
+            triggerRef.current?.blur();
+            skipFocusRestoreRef.current = false;
+          }
+        }}
+      >
         {hasUnread && onMarkAllRead ? (
           <DropdownMenuItem onSelect={() => deferMenuAction(onMarkAllRead)}>
             <CheckCheck className="h-4 w-4" />
@@ -197,7 +209,16 @@ export function SectionActionsMenu({
           </DropdownMenuItem>
         ) : null}
         {onNewMessage ? (
-          <DropdownMenuItem onSelect={() => deferMenuAction(onNewMessage)}>
+          <DropdownMenuItem
+            onSelect={() => {
+              // The deferred New Message route focuses its recipient input.
+              // Do not let Radix restore focus to the sidebar trigger after
+              // that route mounts. Other menu/dialog flows retain the normal
+              // accessible trigger-focus restoration.
+              skipFocusRestoreRef.current = true;
+              deferMenuAction(onNewMessage);
+            }}
+          >
             <Plus className="h-4 w-4" />
             <span>{newMessageLabel ?? "New message"}</span>
           </DropdownMenuItem>
@@ -218,7 +239,17 @@ export function SectionActionsMenu({
           </DropdownMenuItem>
         ) : null}
         {onCreateCategory ? (
-          <DropdownMenuItem onSelect={() => deferMenuAction(onCreateCategory)}>
+          <DropdownMenuItem
+            onSelect={() =>
+              deferMenuAction(() => {
+                // Pin focus on the live trigger before the dialog opens so
+                // Radix's focus stack (and our restore selector) target it —
+                // not a detached menu item — after Escape/cancel.
+                triggerRef.current?.focus();
+                onCreateCategory();
+              })
+            }
+          >
             <Plus className="h-4 w-4" />
             <span>New category...</span>
           </DropdownMenuItem>
