@@ -216,8 +216,11 @@ build_version() {
   /usr/bin/ditto "$app" "$artifact_dir/Buzz.app"
   (
     cd "$bundle_dir/macos"
-    /usr/bin/tar -czf "$archive" Buzz.app
+    COPYFILE_DISABLE=1 /usr/bin/tar -czf "$archive" Buzz.app
   )
+  if /usr/bin/tar -tzf "$archive" | grep -Eq '(^|/)\._'; then
+    fail "updater archive contains AppleDouble metadata entries"
+  fi
   (
     cd "$repo_root/desktop"
     pnpm tauri signer sign \
