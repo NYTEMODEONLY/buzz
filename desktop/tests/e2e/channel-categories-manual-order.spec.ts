@@ -434,10 +434,60 @@ test.describe("sidebar categories and manual channel order", () => {
 
     const categoryHandle = page.getByTestId(`block-drag-${section.id}`);
     const channelsHandle = page.getByTestId("block-drag-__channels__");
-    await page.getByTestId(`section-title-${section.id}`).hover();
-    await expect(categoryHandle).toHaveCSS("opacity", "1");
+    const categoryTitle = page.getByTestId(`section-title-${section.id}`);
+    const channelsLabel = page.getByTestId("stream-list-section-label");
+    const channelsTitle = channelsLabel.locator("[data-sidebar-section-title]");
+    const categoryActions = page.getByTestId(`section-actions-${section.id}`);
+    const channelsActions = page.getByTestId("section-actions-channels");
+
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
     await page.mouse.move(0, 0);
     await expect(categoryHandle).toHaveCSS("opacity", "0");
+    await expect(channelsHandle).toHaveCSS("opacity", "0");
+
+    const categoryTitleBox = await categoryTitle.boundingBox();
+    const channelsTitleBox = await channelsTitle.boundingBox();
+    expect(categoryTitleBox).not.toBeNull();
+    expect(channelsTitleBox).not.toBeNull();
+    if (!categoryTitleBox || !channelsTitleBox) {
+      throw new Error("category headers are not laid out");
+    }
+    expect(Math.abs(categoryTitleBox.x - channelsTitleBox.x)).toBeLessThan(1);
+
+    await categoryTitle.hover();
+    await expect(categoryHandle).toHaveCSS("opacity", "1");
+    const categoryHandleBox = await categoryHandle.boundingBox();
+    const categoryActionsBox = await categoryActions.boundingBox();
+    expect(categoryHandleBox).not.toBeNull();
+    expect(categoryActionsBox).not.toBeNull();
+    if (!categoryHandleBox || !categoryActionsBox) {
+      throw new Error("category actions are not laid out");
+    }
+    expect(categoryHandleBox.x).toBeGreaterThan(categoryActionsBox.x);
+
+    await channelsLabel.hover();
+    await expect(channelsHandle).toHaveCSS("opacity", "1");
+    const channelsHandleBox = await channelsHandle.boundingBox();
+    const channelsActionsBox = await channelsActions.boundingBox();
+    expect(channelsHandleBox).not.toBeNull();
+    expect(channelsActionsBox).not.toBeNull();
+    if (!channelsHandleBox || !channelsActionsBox) {
+      throw new Error("Channels actions are not laid out");
+    }
+    expect(channelsHandleBox.x).toBeGreaterThan(channelsActionsBox.x);
+
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
+    await page.mouse.move(0, 0);
+    await expect(categoryHandle).toHaveCSS("opacity", "0");
+    await expect(channelsHandle).toHaveCSS("opacity", "0");
 
     // Drag Work below Channels → [Channels, Work]
     await dragOver(page, categoryHandle, channelsHandle);
