@@ -334,6 +334,7 @@ export function SectionActionsMenu({
 function ChannelSectionHeader({
   contentId,
   isCollapsed,
+  isMovable,
   onToggleCollapsed,
   title,
   testId,
@@ -341,6 +342,7 @@ function ChannelSectionHeader({
 }: {
   contentId: string;
   isCollapsed: boolean;
+  isMovable?: boolean;
   onToggleCollapsed: () => void;
   title: string;
   testId: string;
@@ -352,7 +354,10 @@ function ChannelSectionHeader({
         <button
           aria-controls={contentId}
           aria-expanded={!isCollapsed}
-          className={SECTION_LABEL_BUTTON_CLASS}
+          className={cn(
+            SECTION_LABEL_BUTTON_CLASS,
+            isMovable && "max-w-[calc(100%-5.25rem)]",
+          )}
           data-testid={`${testId}-section-label`}
           onClick={onToggleCollapsed}
           type="button"
@@ -564,7 +569,7 @@ export function ChannelGroupSection({
       </SortableChannelContext>
     ) : null;
 
-  const sectionContent = (
+  const renderSectionContent = (blockDragHandle?: React.ReactNode) => (
     <SidebarGroup
       className={cn(
         "group/sidebar-section select-none",
@@ -576,6 +581,7 @@ export function ChannelGroupSection({
       <ChannelSectionHeader
         contentId={contentId}
         isCollapsed={isCollapsed}
+        isMovable={Boolean(blockDragHandle)}
         onToggleCollapsed={onToggleCollapsed}
         title={title}
         testId={listTestId}
@@ -609,6 +615,7 @@ export function ChannelGroupSection({
               onSortModeChange={onSortModeChange}
               manualSortEnabled={manualSortEnabled}
             />
+            {blockDragHandle}
           </>
         }
       />
@@ -618,32 +625,29 @@ export function ChannelGroupSection({
     </SidebarGroup>
   );
 
-  const droppable = draggable ? (
-    <DroppableUngroupedBody>{sectionContent}</DroppableUngroupedBody>
-  ) : (
-    sectionContent
-  );
+  const wrapDroppable = (content: React.ReactNode) =>
+    draggable ? (
+      <DroppableUngroupedBody>{content}</DroppableUngroupedBody>
+    ) : (
+      content
+    );
 
-  if (!blockId) return droppable;
+  if (!blockId) return wrapDroppable(renderSectionContent());
 
   return (
     <SortableChannelsBlockShell blockId={blockId}>
       {({ dragHandleProps, isDragging }) => (
-        <div
-          className={cn(
-            "group/sidebar-section relative",
-            isDragging && "opacity-30",
+        <div className={cn("relative", isDragging && "opacity-30")}>
+          {wrapDroppable(
+            renderSectionContent(
+              <BlockDragHandle
+                dragHandleProps={dragHandleProps}
+                isDragging={isDragging}
+                label={title}
+                testId={`block-drag-${blockId}`}
+              />,
+            ),
           )}
-        >
-          <div className="absolute left-0 top-1 z-10">
-            <BlockDragHandle
-              dragHandleProps={dragHandleProps}
-              isDragging={isDragging}
-              label={title}
-              testId={`block-drag-${blockId}`}
-            />
-          </div>
-          {droppable}
         </div>
       )}
     </SortableChannelsBlockShell>
@@ -745,23 +749,13 @@ export function CustomChannelSection({
             <ContextMenu>
               <ContextMenuTrigger asChild>
                 <div className="relative">
-                  <div className="absolute left-0 top-1/2 z-10 -translate-y-1/2">
-                    <BlockDragHandle
-                      dragHandleProps={dragHandleProps}
-                      isDragging={isDragging}
-                      label={section.name}
-                      testId={`block-drag-${section.id}`}
-                    />
-                  </div>
-                  <SidebarGroupLabel
-                    asChild
-                    className={section.icon ? "pl-7" : "pl-8"}
-                  >
+                  <SidebarGroupLabel asChild>
                     <button
                       aria-controls={contentId}
                       aria-expanded={!isCollapsed}
                       className={cn(
                         SECTION_LABEL_BUTTON_CLASS,
+                        "max-w-[calc(100%-5.25rem)]",
                         section.icon && "gap-2",
                       )}
                       onClick={onToggleCollapsed}
@@ -820,6 +814,12 @@ export function CustomChannelSection({
                       sortMode={sortMode}
                       onSortModeChange={onSortModeChange}
                       manualSortEnabled
+                    />
+                    <BlockDragHandle
+                      dragHandleProps={dragHandleProps}
+                      isDragging={isDragging}
+                      label={section.name}
+                      testId={`block-drag-${section.id}`}
                     />
                   </div>
                 </div>
