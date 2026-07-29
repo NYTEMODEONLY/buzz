@@ -163,12 +163,27 @@ test("relayAgentIsSharedWithUser: accepts allowlist agents for the current user"
   );
 });
 
-test("relayAgentIsSharedWithUser: owner declaration alone does not grant invocation", () => {
+test("relayAgentIsSharedWithUser: accepts an exact owner-managed agent with owner-only policy", () => {
   assert.equal(
     relayAgentIsSharedWithUser(
       makeAgent({
         isOwnerManaged: true,
         respondTo: "owner-only",
+        channelIds: [],
+      }),
+      new Set(),
+      CURRENT_PUBKEY,
+    ),
+    true,
+  );
+});
+
+test("relayAgentIsSharedWithUser: owner declaration alone does not grant invocation", () => {
+  assert.equal(
+    relayAgentIsSharedWithUser(
+      makeAgent({
+        isOwnerManaged: true,
+        respondTo: null,
         channelIds: [],
       }),
       new Set(),

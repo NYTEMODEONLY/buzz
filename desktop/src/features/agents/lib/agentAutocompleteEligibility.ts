@@ -73,6 +73,14 @@ export function relayAgentIsSharedWithUser(
     ? normalizePubkey(currentPubkey)
     : null;
 
+  // `isOwnerManaged` is derived only from the current owner's exact,
+  // owner-authored kind:30177 declaration. It is not invocation authority by
+  // itself, but it proves this viewer is the owner named by an explicit
+  // `owner-only` directory policy.
+  if (agent.respondTo === "owner-only") {
+    return agent.isOwnerManaged === true;
+  }
+
   if (agent.respondTo === "allowlist" && normalizedCurrentPubkey) {
     return agent.respondToAllowlist
       .map((pubkey) => normalizePubkey(pubkey))

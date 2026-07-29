@@ -259,6 +259,40 @@ test("@ trigger does not let a known DM bypass missing invocation policy", async
   await expect(dropdown.getByText("alice")).toHaveCount(0);
 });
 
+test("@ trigger admits exact owner-managed ALICE under owner-only policy", async ({
+  page,
+}) => {
+  await installMockBridge(page, {
+    replaceRelayAgents: true,
+    relayAgents: [
+      {
+        pubkey: TEST_IDENTITIES.alice.pubkey,
+        name: "ALICE",
+        isOwnerManaged: true,
+        respondTo: "owner-only",
+        status: "online",
+      },
+    ],
+  });
+  await page.goto("/");
+  await page.getByTestId("channel-general").click();
+  await expect(page.getByTestId("chat-title")).toHaveText("general");
+
+  const input = page.getByTestId("message-input");
+  await input.fill("@ali");
+
+  const dropdown = autocomplete(page);
+  await expect(dropdown.getByText("alice", { exact: true })).toBeVisible();
+  await dropdown.getByText("alice", { exact: true }).click();
+
+  await expect(input).toHaveText("@alice ");
+  await expect(
+    input.locator(".mention-chip.agent-mention-highlight", {
+      hasText: "alice",
+    }),
+  ).toBeVisible();
+});
+
 test("thread autocomplete keeps multiple long names readable in a narrow panel", async ({
   page,
 }) => {
