@@ -7,6 +7,7 @@ pub(crate) use agent_env::{
 };
 mod backend;
 pub(crate) mod config_bridge;
+mod creation_invariants;
 pub(crate) mod custom_harnesses;
 mod discovery;
 pub(crate) mod effective_config;
@@ -15,6 +16,7 @@ pub(crate) mod git_bash;
 pub(crate) mod global_config;
 mod managed_node_paths;
 mod nest;
+pub(crate) mod nytemode_identity_policy;
 mod persona_avatars;
 pub(crate) mod persona_events;
 mod personas;
@@ -47,6 +49,10 @@ pub(crate) fn lock_path_mutex() -> std::sync::MutexGuard<'static, ()> {
 }
 
 pub use backend::*;
+pub(crate) use creation_invariants::{
+    ensure_personal_persona_identity_is_available, ensure_team_deployment_matches_persona,
+    normalize_relay_mesh, trim_to_optional_string,
+};
 pub use discovery::*;
 pub use env_vars::*;
 #[cfg(windows)]

@@ -20,7 +20,7 @@ import { SecretRevealDialog } from "./SecretRevealDialog";
 import { TeamDeleteDialog } from "./TeamDeleteDialog";
 import { TeamDialog } from "./TeamDialog";
 import { TeamsSection } from "./TeamsSection";
-import { ExternalAgentsSection } from "./ExternalAgentsSection";
+import { CanonicalExternalAgentCards } from "./CanonicalExternalAgentCards";
 import {
   AGENT_CARD_GRID_COLUMNS_CLASS,
   UnifiedAgentsSection,
@@ -30,11 +30,7 @@ import { usePersonaActions } from "./usePersonaActions";
 import { useTeamActions } from "./useTeamActions";
 import { useProfilePanel } from "@/shared/context/ProfilePanelContext";
 import { useBakedBuildEnvQuery } from "@/features/agents/hooks";
-import {
-  activeAuthorizedManagedAgents,
-  launchableLibraryPersonas as filterLaunchableLibraryPersonas,
-  runnableLocalManagedAgents,
-} from "@/features/agents/lib/managedAgentIdentitySafety";
+import { isManagedAgentActive } from "@/features/agents/lib/managedAgentControlActions";
 import { useGlobalAgentConfig } from "@/features/agents/useGlobalAgentConfig";
 import { Button } from "@/shared/ui/button";
 import { PageHeader } from "@/shared/ui/PageHeader";
@@ -47,28 +43,6 @@ export function AgentsView() {
   const inheritedDefaults = getInheritedAgentDefaults(globalConfig, bakedEnv);
   const agents = useManagedAgentActions();
   const personas = usePersonaActions();
-  const relayAgents = agents.relayAgentsQuery.data ?? [];
-  // Pending or errored discovery is not authoritative evidence that no
-  // canonical owner-managed identity exists on another installation.
-  const ownerManagedDeclarationsResolved = agents.relayAgentsQuery.isSuccess;
-  const runnableManagedAgents = React.useMemo(
-    () =>
-      runnableLocalManagedAgents(
-        agents.managedAgents,
-        relayAgents,
-        ownerManagedDeclarationsResolved,
-      ),
-    [agents.managedAgents, ownerManagedDeclarationsResolved, relayAgents],
-  );
-  const launchableLibraryPersonas = React.useMemo(
-    () =>
-      filterLaunchableLibraryPersonas(
-        personas.libraryPersonas,
-        relayAgents,
-        ownerManagedDeclarationsResolved,
-      ),
-    [ownerManagedDeclarationsResolved, personas.libraryPersonas, relayAgents],
-  );
   const teamImportInputRef = React.useRef<HTMLInputElement | null>(null);
   const aiDefaultsTriggerRef = React.useRef<HTMLButtonElement>(null);
   const [isAiDefaultsOpen, setIsAiDefaultsOpen] = React.useState(false);
@@ -97,8 +71,8 @@ export function AgentsView() {
     teamActions.createTeamMutation.isPending ||
     teamActions.updateTeamMutation.isPending ||
     teamActions.deleteTeamMutation.isPending;
-  const runningAgentCount = activeAuthorizedManagedAgents(
-    runnableManagedAgents,
+  const runningAgentCount = agents.managedAgents.filter((agent) =>
+    isManagedAgentActive(agent),
   ).length;
   const hasSavedAgentDefaults = Boolean(
     globalConfig.preferred_runtime?.trim() ||
@@ -162,7 +136,7 @@ export function AgentsView() {
                   <Button
                     disabled={isActionPending}
                     onClick={() => {
-                      void agents.handleBulkStopRunning(runnableManagedAgents);
+                      void agents.handleBulkStopRunning(agents.managedAgents);
                     }}
                     size="sm"
                     variant="outline"
@@ -181,7 +155,7 @@ export function AgentsView() {
               defaultModel={inheritedDefaults.model.value}
               actionErrorMessage={agents.actionErrorMessage}
               actionNoticeMessage={agents.actionNoticeMessage}
-              agents={runnableManagedAgents}
+              agents={agents.managedAgents}
               agentsError={
                 agents.managedAgentsQuery.error instanceof Error
                   ? agents.managedAgentsQuery.error
@@ -189,6 +163,13 @@ export function AgentsView() {
               }
               isActionPending={isActionPending}
               isAgentsLoading={agents.managedAgentsQuery.isLoading}
+              extraAgentCards={
+                <CanonicalExternalAgentCards
+                  onOpenAgentProfile={(pubkey) => {
+                    openProfilePanel?.(pubkey);
+                  }}
+                />
+              }
               startingAgentPubkey={agents.startingAgentPubkey}
               startingPersonaIds={agents.startingPersonaIds}
               onOpenAgentProfile={(pubkey, options) => {
@@ -204,7 +185,7 @@ export function AgentsView() {
                 void agents.handleStartPersona(persona);
               }}
               // Persona props
-              personas={launchableLibraryPersonas}
+              personas={personas.libraryPersonas}
               personasError={
                 personas.personasQuery.error instanceof Error
                   ? personas.personasQuery.error
@@ -234,20 +215,6 @@ export function AgentsView() {
               onImportSnapshotFile={(fileBytes, fileName) => {
                 void personas.handleImportSnapshotFile(fileBytes, fileName);
               }}
-            />
-
-            <ExternalAgentsSection
-              error={
-                agents.relayAgentsQuery.error instanceof Error
-                  ? agents.relayAgentsQuery.error
-                  : null
-              }
-              isLoading={agents.relayAgentsQuery.isLoading}
-              managedPubkeys={agents.managedPubkeys}
-              onOpenAgentProfile={(pubkey) => {
-                openProfilePanel?.(pubkey);
-              }}
-              relayAgents={agents.relayAgentsQuery.data ?? []}
             />
 
             <TeamsSection

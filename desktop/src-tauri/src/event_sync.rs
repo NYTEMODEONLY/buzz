@@ -16,6 +16,9 @@ use std::path::Path;
 pub fn run_event_sync(app: &tauri::AppHandle, owner_keys: &nostr::Keys, db_path: &Path) {
     migrate_personas_to_events(app, owner_keys, db_path);
     migrate_teams_to_events(app, owner_keys, db_path);
+    crate::managed_agents::nytemode_identity_policy::retire_superseded_identities(
+        app, owner_keys, db_path,
+    );
     crate::managed_agents::reconcile::reconcile_agents_to_events(app, owner_keys, db_path);
 }
 

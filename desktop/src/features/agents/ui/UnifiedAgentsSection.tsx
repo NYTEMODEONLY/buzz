@@ -29,6 +29,7 @@ import { PersonaActionsMenu } from "./PersonaActionsMenu";
 import { buildUnifiedGroups, pickProfileAgent } from "./unifiedAgentGroups";
 
 type UnifiedAgentsSectionProps = {
+  extraAgentCards?: React.ReactNode;
   defaultModel: string;
   actionErrorMessage: string | null;
   actionNoticeMessage: string | null;
@@ -75,6 +76,7 @@ export function UnifiedAgentsSection(props: UnifiedAgentsSectionProps) {
     actionErrorMessage,
     actionNoticeMessage,
     defaultModel,
+    extraAgentCards,
     agents,
     agentsError,
     isActionPending,
@@ -188,6 +190,7 @@ export function UnifiedAgentsSection(props: UnifiedAgentsSectionProps) {
                 />
               );
             })}
+            {extraAgentCards}
             <NewAgentCard
               isPending={isPersonasPending}
               onCreate={onCreatePersona}

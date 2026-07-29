@@ -5,6 +5,7 @@ import {
   coalesceAgentAutocompleteCandidates,
   getJoinedDmPeerPubkeys,
   getMentionableAgentPubkeys,
+  getPinnedDmPeerPubkeys,
   getSharedChannelIds,
   isAgentIdentityInManagedList,
   relayAgentIsSharedWithUser,
@@ -83,6 +84,26 @@ test("getJoinedDmPeerPubkeys: keeps only peers from active joined DMs", () => {
   );
 });
 
+test("getPinnedDmPeerPubkeys: a joined DM cannot admit an unpinned agent", () => {
+  const channels = [
+    {
+      channelType: "dm",
+      isMember: true,
+      archivedAt: null,
+      participantPubkeys: [CURRENT_PUBKEY, PUB_A, PUB_B],
+    },
+  ];
+
+  assert.deepEqual(
+    getPinnedDmPeerPubkeys(
+      channels,
+      CURRENT_PUBKEY,
+      new Set([PUB_B.toUpperCase()]),
+    ),
+    new Set([PUB_B]),
+  );
+});
+
 test("relayAgentIsSharedWithUser: accepts shared anyone agents and rejects unshared ones", () => {
   const sharedChannelIds = new Set(["general"]);
 
@@ -142,7 +163,7 @@ test("relayAgentIsSharedWithUser: accepts allowlist agents for the current user"
   );
 });
 
-test("relayAgentIsSharedWithUser: accepts exact owner-managed owner-only agents", () => {
+test("relayAgentIsSharedWithUser: owner declaration alone does not grant invocation", () => {
   assert.equal(
     relayAgentIsSharedWithUser(
       makeAgent({
@@ -153,7 +174,7 @@ test("relayAgentIsSharedWithUser: accepts exact owner-managed owner-only agents"
       new Set(),
       CURRENT_PUBKEY,
     ),
-    true,
+    false,
   );
 });
 
@@ -303,6 +324,26 @@ test("coalesceAgentAutocompleteCandidates: merges agents with the same persona i
   });
 
   assert.deepEqual(coalesce([first, second]), [second]);
+});
+
+test("coalesceAgentAutocompleteCandidates: canonical identity outranks a stale member sibling", () => {
+  const canonical = makeAgent({
+    pubkey: PUB_A,
+    personaId: "pinky",
+    isManagedAgent: true,
+  });
+  const staleMember = makeAgent({
+    pubkey: PUB_B,
+    personaId: "pinky",
+    isMember: true,
+  });
+
+  assert.deepEqual(
+    coalesce([staleMember, canonical], {
+      preferredPubkeys: new Set([PUB_A]),
+    }),
+    [canonical],
+  );
 });
 
 test("coalesceAgentAutocompleteCandidates: merges agents with the same owner and name", () => {

@@ -1,5 +1,5 @@
 use super::*;
-use crate::managed_agents::AgentDefinition;
+use crate::managed_agents::{AgentDefinition, TeamRecord};
 
 fn bare_agent_record(
     persona_id: Option<&str>,
@@ -88,6 +88,76 @@ fn persona_record(id: &str, model: Option<&str>, provider: Option<&str>) -> Agen
         created_at: "".to_string(),
         updated_at: "".to_string(),
     }
+}
+
+fn team_record(id: &str, persona_ids: &[&str]) -> TeamRecord {
+    TeamRecord {
+        id: id.to_string(),
+        name: "Test Team".to_string(),
+        description: None,
+        instructions: None,
+        persona_ids: persona_ids.iter().map(|id| id.to_string()).collect(),
+        is_builtin: false,
+        source_dir: None,
+        is_symlink: false,
+        symlink_target: None,
+        version: None,
+        created_at: String::new(),
+        updated_at: String::new(),
+    }
+}
+
+#[test]
+fn personal_persona_start_reuses_existing_exact_identity() {
+    let record = bare_agent_record(Some("builtin:bumble"), None, None);
+
+    let error =
+        ensure_personal_persona_identity_is_available(&[record], Some("builtin:bumble"), None)
+            .unwrap_err();
+
+    assert!(error.contains("agent"));
+    assert!(error.contains("reuse that exact identity"));
+}
+
+#[test]
+fn phase_three_recheck_catches_identity_created_after_phase_one() {
+    assert!(
+        ensure_personal_persona_identity_is_available(&[], Some("builtin:bumble"), None).is_ok()
+    );
+    let record = bare_agent_record(Some("builtin:bumble"), None, None);
+
+    assert!(
+        ensure_personal_persona_identity_is_available(&[record], Some("builtin:bumble"), None)
+            .is_err()
+    );
+}
+
+#[test]
+fn explicit_valid_team_deployment_preserves_upstream_multi_instance_scope() {
+    let teams = [team_record("team-deployment", &["builtin:bumble"])];
+    ensure_team_deployment_matches_persona(&teams, Some("builtin:bumble"), Some("team-deployment"))
+        .unwrap();
+
+    let record = bare_agent_record(Some("builtin:bumble"), None, None);
+    assert!(ensure_personal_persona_identity_is_available(
+        &[record],
+        Some("builtin:bumble"),
+        Some("team-deployment")
+    )
+    .is_ok());
+}
+
+#[test]
+fn unrelated_team_cannot_bypass_personal_identity_reuse() {
+    let teams = [team_record("team-deployment", &["builtin:honey"])];
+    let error = ensure_team_deployment_matches_persona(
+        &teams,
+        Some("builtin:bumble"),
+        Some("team-deployment"),
+    )
+    .unwrap_err();
+
+    assert!(error.contains("does not belong"));
 }
 
 /// Auto-archive uses the same NIP-IA wire builder as the explicit GUI action,

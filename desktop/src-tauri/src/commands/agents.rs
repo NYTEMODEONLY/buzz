@@ -5,14 +5,15 @@ use crate::{
     app_state::AppState,
     managed_agents::{
         build_managed_agent_summary, current_instance_id, discover_provider_candidates,
-        ensure_persona_is_active, find_managed_agent_mut, load_managed_agents, load_personas,
-        load_teams, managed_agent_avatar_url, normalize_agent_args, provider_deploy,
-        resolve_provider_binary, save_managed_agents, start_managed_agent_process,
-        stop_managed_agent_process, stop_managed_agent_workspace_pair,
-        sync_managed_agent_processes, try_regenerate_nest, validate_provider_config, BackendKind,
-        CreateManagedAgentRequest, CreateManagedAgentResponse, ManagedAgentRecord,
-        ManagedAgentSummary, RelayMeshConfig, DEFAULT_ACP_COMMAND, DEFAULT_AGENT_PARALLELISM,
-        DEFAULT_AGENT_TURN_TIMEOUT_SECONDS,
+        ensure_persona_is_active, ensure_personal_persona_identity_is_available,
+        ensure_team_deployment_matches_persona, find_managed_agent_mut, load_managed_agents,
+        load_personas, load_teams, managed_agent_avatar_url, normalize_agent_args,
+        normalize_relay_mesh, provider_deploy, resolve_provider_binary, save_managed_agents,
+        start_managed_agent_process, stop_managed_agent_process, stop_managed_agent_workspace_pair,
+        sync_managed_agent_processes, trim_to_optional_string, try_regenerate_nest,
+        validate_provider_config, BackendKind, CreateManagedAgentRequest,
+        CreateManagedAgentResponse, ManagedAgentRecord, ManagedAgentSummary, RelayMeshConfig,
+        DEFAULT_ACP_COMMAND, DEFAULT_AGENT_PARALLELISM, DEFAULT_AGENT_TURN_TIMEOUT_SECONDS,
     },
     relay::{relay_ws_url_with_override, sync_managed_agent_profile},
     util::now_iso,
@@ -198,36 +199,6 @@ pub(super) fn archive_managed_agent_pending(app: &AppHandle, state: &AppState, a
     })();
     if let Err(e) = result {
         eprintln!("buzz-desktop: agent-archive: {e}");
-    }
-}
-
-fn normalize_relay_mesh(
-    config: Option<&RelayMeshConfig>,
-    backend: &BackendKind,
-) -> Result<Option<RelayMeshConfig>, String> {
-    let Some(config) = config else {
-        return Ok(None);
-    };
-
-    let model_ref = config.model_ref.trim();
-    if model_ref.is_empty() {
-        return Err("Buzz shared compute model is required".to_string());
-    }
-    if backend != &BackendKind::Local {
-        return Err("Buzz shared compute agents must use the local backend".to_string());
-    }
-
-    Ok(Some(RelayMeshConfig {
-        model_ref: model_ref.to_string(),
-    }))
-}
-
-fn trim_to_optional_string(value: &str) -> Option<String> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
     }
 }
 
@@ -577,6 +548,12 @@ pub async fn create_managed_agent(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string);
+    let requested_team_id = input
+        .team_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
     if let Some(parallelism) = input.parallelism {
         if !(1..=32).contains(&parallelism) {
             return Err("parallelism must be between 1 and 32".to_string());
@@ -629,6 +606,16 @@ pub async fn create_managed_agent(
             let personas = load_personas(&app)?;
             ensure_persona_is_active(&personas, persona_id)?;
         }
+        ensure_team_deployment_matches_persona(
+            &load_teams(&app)?,
+            requested_persona_id.as_deref(),
+            requested_team_id.as_deref(),
+        )?;
+        ensure_personal_persona_identity_is_available(
+            &records,
+            requested_persona_id.as_deref(),
+            requested_team_id.as_deref(),
+        )?;
         let keys = Keys::generate();
         let pubkey = keys.public_key().to_hex();
         if records.iter().any(|record| record.pubkey == pubkey) {
@@ -702,6 +689,16 @@ pub async fn create_managed_agent(
         if records.iter().any(|record| record.pubkey == pubkey) {
             return Err(format!("agent {pubkey} already exists"));
         }
+        ensure_team_deployment_matches_persona(
+            &load_teams(&app)?,
+            requested_persona_id.as_deref(),
+            requested_team_id.as_deref(),
+        )?;
+        ensure_personal_persona_identity_is_available(
+            &records,
+            requested_persona_id.as_deref(),
+            requested_team_id.as_deref(),
+        )?;
         // Provider config was already validated in Pre-Phase 2; cache the discovered binary path for deploy_to_provider.
         let provider_binary_path = if let BackendKind::Provider { ref id, .. } = input.backend {
             // Use resolve_provider_binary (discovered candidates only).
@@ -756,17 +753,7 @@ pub async fn create_managed_agent(
             None => String::new(),
         };
 
-        let team_id = input
-            .team_id
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(str::to_string);
-        if let Some(team_id) = &team_id {
-            if !load_teams(&app)?.iter().any(|team| &team.id == team_id) {
-                return Err(format!("team {team_id} not found"));
-            }
-        }
+        let team_id = requested_team_id.clone();
 
         // Resolve the avatar URL once at creation and persist it on the record.
         // Explicit input wins, then the persona's own avatar, then the runtime

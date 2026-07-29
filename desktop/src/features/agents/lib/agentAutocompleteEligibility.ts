@@ -46,6 +46,21 @@ export function getJoinedDmPeerPubkeys(
   return peerPubkeys;
 }
 
+export function getPinnedDmPeerPubkeys(
+  channels: readonly Channel[] | undefined,
+  currentPubkey: string | null | undefined,
+  allowedPubkeys: ReadonlySet<string>,
+) {
+  const normalizedAllowed = new Set(
+    [...allowedPubkeys].map((pubkey) => normalizePubkey(pubkey)),
+  );
+  return new Set(
+    [...getJoinedDmPeerPubkeys(channels, currentPubkey)].filter((pubkey) =>
+      normalizedAllowed.has(pubkey),
+    ),
+  );
+}
+
 export function relayAgentIsSharedWithUser(
   agent: Pick<
     RelayAgent,
@@ -57,13 +72,6 @@ export function relayAgentIsSharedWithUser(
   const normalizedCurrentPubkey = currentPubkey
     ? normalizePubkey(currentPubkey)
     : null;
-
-  // list_relay_agents sets this only from the current owner's exact,
-  // owner-authored kind:30177 declaration. Owner-only agents must remain
-  // visible to that owner even when they share no channel yet.
-  if (agent.isOwnerManaged) {
-    return true;
-  }
 
   if (agent.respondTo === "allowlist" && normalizedCurrentPubkey) {
     return agent.respondToAllowlist
@@ -203,8 +211,8 @@ function agentCandidateRank<T extends AgentAutocompleteCandidate>(
     : null;
 
   return [
-    candidate.isMember === true ? 0 : 1,
     pubkey && preferredPubkeys.has(pubkey) ? 0 : 1,
+    candidate.isMember === true ? 0 : 1,
     candidate.isManagedAgent === true ? 0 : 1,
     candidate.personaId ? 0 : 1,
     ownerPubkey && ownerPubkey === normalizedCurrentPubkey ? 0 : 1,

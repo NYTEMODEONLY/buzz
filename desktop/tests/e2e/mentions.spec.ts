@@ -244,7 +244,7 @@ test("@ trigger prioritizes channel members before runnable personas and other a
   expect(fizzIndex).toBeLessThan(charlieIndex);
 });
 
-test("@ trigger keeps a known DM agent visible when relay directory discovery misses it", async ({
+test("@ trigger does not let a known DM bypass missing invocation policy", async ({
   page,
 }) => {
   await installMockBridge(page, { replaceRelayAgents: true });
@@ -256,15 +256,7 @@ test("@ trigger keeps a known DM agent visible when relay directory discovery mi
   await input.fill("@ali");
 
   const dropdown = autocomplete(page);
-  await expect(dropdown.getByText("alice")).toBeVisible();
-  await dropdown.getByText("alice").click();
-
-  await expect(input).toHaveText("@alice ");
-  await expect(
-    input.locator(".mention-chip.agent-mention-highlight", {
-      hasText: "alice",
-    }),
-  ).toBeVisible();
+  await expect(dropdown.getByText("alice")).toHaveCount(0);
 });
 
 test("thread autocomplete keeps multiple long names readable in a narrow panel", async ({

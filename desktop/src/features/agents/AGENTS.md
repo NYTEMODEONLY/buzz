@@ -106,19 +106,20 @@ with a TypeScript lookup table or an id comparison in a component.
    Edit. In Edit,
    selecting Custom command keeps its required command field beside the harness
    picker rather than hiding it in Advanced.
-10. **Managed identity authority is exact-pubkey and relay-backed.** A current
-   owner's kind `30177` declaration identifies the canonical agent across Buzz
-   installations even when this install lacks its key or its kind `10100`
-   profile is missing. Never infer replacement authority from an empty local
-   registry, isolated keyring, display-name match, pending/error relay query,
-   or unavailable archive snapshot. Owner-only canonical agents remain visible
-   to their owner as `Managed elsewhere`; same-persona local siblings and
-   persona launch controls stay withheld until owner declarations resolve, and
-   bulk runtime controls may consume only that identity-safe subset. Honor only
-   exact owner-authored coordinate tombstones, suppress archived identities
-   from forward-looking external discovery, and allow a later live declaration
-   to restore the same pubkey. External hosts retain their runtime, memory,
-   provider, credentials, and skills.
+10. **Managed identity authority is exact-pubkey and invocation-scoped.**
+   Owner-authored kind `30177` declarations are durable lineage evidence, not
+   permission to surface every historical identity as an agent card or mention.
+   Never infer authority from an empty local registry, isolated keyring,
+   display-name match, joined DM, pending/error relay query, or unavailable
+   archive snapshot. Local runtime controls use exact locally keyed records.
+   Mentions require either that local record or the normal relay
+   `respond_to`/channel/allowlist policy; an owner declaration alone never
+   grants invocation. Owner-pinned external identities are selected by exact
+   pubkey and remain presentation-only in Desktop, preserving their external
+   runtime, memory, provider, credentials, skills, and lifecycle. Normal
+   persona Start reuses an existing exact identity; explicit team deployments
+   remain the named upstream multi-instance scope. Honor only exact
+   owner-authored coordinate tombstones and never retire by display name.
 11. **Catalog visibility is community-scoped relay state, never a global
     definition field.** `AgentDefinition.shared` is only the active
     relay+owner projection returned to the UI. Durable heads and pending

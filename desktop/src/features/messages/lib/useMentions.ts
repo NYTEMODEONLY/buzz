@@ -6,7 +6,9 @@ import {
   useTeamsQuery,
 } from "@/features/agents/hooks";
 import {
+  CANONICAL_EXTERNAL_AGENT_PUBKEYS,
   externalAgentPresentationScope,
+  getCanonicalAgentPubkeys,
   useExternalAgentPresentations,
 } from "@/features/agents/externalAgentPresentation";
 import {
@@ -85,7 +87,6 @@ export function useMentions(
   const mentionMapRef = React.useRef<Map<string, string>>(new Map());
   const personaMentionMapRef = React.useRef<Map<string, string>>(new Map());
   const previousSuggestionsRef = React.useRef<MentionSuggestion[]>([]);
-  void options?.channelType;
   const mentionSearchQuery = mentionQuery?.trim() ?? "";
   const canSearchGlobalPeople = mentionSearchQuery.length > 0;
   const identityQuery = useIdentityQuery();
@@ -110,6 +111,7 @@ export function useMentions(
   const dmAgentCandidates = useDmAgentMentionCandidates(
     channelsQuery.data,
     currentPubkey,
+    CANONICAL_EXTERNAL_AGENT_PUBKEYS,
   );
   const managedAgentDirectoryReady =
     managedAgentsQuery.data !== undefined ||
@@ -196,17 +198,14 @@ export function useMentions(
     [channelsQuery.data],
   );
   const mentionableAgentPubkeys = React.useMemo(() => {
-    const pubkeys = getMentionableAgentPubkeys({
+    return getMentionableAgentPubkeys({
       currentPubkey,
       managedAgentPubkeys,
       relayAgents: relayAgentsQuery.data,
       sharedChannelIds,
     });
-    for (const pubkey of dmAgentCandidates.pubkeys) pubkeys.add(pubkey);
-    return pubkeys;
   }, [
     currentPubkey,
-    dmAgentCandidates.pubkeys,
     managedAgentPubkeys,
     relayAgentsQuery.data,
     sharedChannelIds,
@@ -330,8 +329,9 @@ export function useMentions(
         isMember: false,
         personaId:
           managedAgentPersonaIdsByPubkey.get(pubkey) ??
+          agent.ownerManagedPersonaId ??
           (activePersonaById.has(pubkey) ? pubkey : undefined),
-        ownerPubkey: null,
+        ownerPubkey: agent.isOwnerManaged ? currentPubkey : null,
         isAgent: true,
       });
     }
@@ -402,7 +402,7 @@ export function useMentions(
       {
         currentPubkey,
         getLabel: mentionCandidateLabel,
-        preferredPubkeys: memberPubkeys,
+        preferredPubkeys: getCanonicalAgentPubkeys(managedAgentPubkeys),
       },
     );
   }, [
@@ -420,7 +420,6 @@ export function useMentions(
     managedAgentPersonaIdsByPubkey,
     managedAgentPubkeys,
     managedAgentsQuery.data,
-    memberPubkeys,
     members,
     mentionableAgentPubkeys,
     personaNameByPubkey,

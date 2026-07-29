@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { getJoinedDmPeerPubkeys } from "@/features/agents/lib/agentAutocompleteEligibility";
+import { getPinnedDmPeerPubkeys } from "@/features/agents/lib/agentAutocompleteEligibility";
 import { useUsersBatchQuery } from "@/features/profile/hooks";
 import type { Channel } from "@/shared/api/types";
 import { normalizePubkey } from "@/shared/lib/pubkey";
@@ -8,22 +8,20 @@ import type { MentionCandidate } from "./mentionCandidates";
 
 type DmAgentMentionCandidates = {
   candidates: MentionCandidate[];
-  pubkeys: ReadonlySet<string>;
 };
 
 /**
- * Resolve already-known DM peers that identify as agents in their kind-0
- * profile. This keeps a canonical external agent mentionable when the broader
- * kind-10100 directory query is incomplete, without admitting arbitrary
- * global agent search results.
+ * Resolve owner-pinned DM peers that identify as agents in their kind-0
+ * profile. A joined DM alone is not identity or invocation authority.
  */
 export function useDmAgentMentionCandidates(
   channels: readonly Channel[] | undefined,
   currentPubkey?: string | null,
+  allowedPubkeys: ReadonlySet<string> = new Set(),
 ): DmAgentMentionCandidates {
   const dmPeerPubkeys = React.useMemo(
-    () => [...getJoinedDmPeerPubkeys(channels, currentPubkey)],
-    [channels, currentPubkey],
+    () => [...getPinnedDmPeerPubkeys(channels, currentPubkey, allowedPubkeys)],
+    [allowedPubkeys, channels, currentPubkey],
   );
   const dmPeerProfilesQuery = useUsersBatchQuery(dmPeerPubkeys, {
     enabled: dmPeerPubkeys.length > 0,
@@ -31,7 +29,6 @@ export function useDmAgentMentionCandidates(
 
   return React.useMemo(() => {
     const candidates: MentionCandidate[] = [];
-    const pubkeys = new Set<string>();
 
     for (const [pubkey, profile] of Object.entries(
       dmPeerProfilesQuery.data?.profiles ?? {},
@@ -39,7 +36,6 @@ export function useDmAgentMentionCandidates(
       if (profile.isAgent !== true) continue;
 
       const normalized = normalizePubkey(pubkey);
-      pubkeys.add(normalized);
       candidates.push({
         kind: "identity",
         pubkey: normalized,
@@ -59,6 +55,6 @@ export function useDmAgentMentionCandidates(
       });
     }
 
-    return { candidates, pubkeys };
+    return { candidates };
   }, [dmPeerProfilesQuery.data?.profiles]);
 }

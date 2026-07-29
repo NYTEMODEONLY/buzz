@@ -10,6 +10,29 @@ import { normalizePubkey } from "@/shared/lib/pubkey";
 const STORAGE_PREFIX = "buzz.external-agent-presentations.v1";
 const CHANGE_EVENT = "buzz-external-agent-presentations-changed";
 
+/**
+ * NYTEMODE's externally hosted agent boundary.
+ *
+ * These identities are selected by exact public key, never by display name.
+ * They remain outside the local managed-agent store so Desktop cannot replace
+ * their runtime, key, memory, provider, skills, or lifecycle.
+ */
+export const CANONICAL_EXTERNAL_AGENTS = [
+  {
+    pubkey: "a0456f8689529792012deec933d7bbdfc8310ae766bd5d8e37df31bf4e14757d",
+    fallbackName: "ALICE",
+    runtimeLabel: "HERMES",
+  },
+] as const;
+
+export const CANONICAL_EXTERNAL_AGENT_PUBKEYS = new Set(
+  CANONICAL_EXTERNAL_AGENTS.map((agent) => agent.pubkey),
+);
+
+export function getCanonicalAgentPubkeys(managedPubkeys: ReadonlySet<string>) {
+  return new Set([...managedPubkeys, ...CANONICAL_EXTERNAL_AGENT_PUBKEYS]);
+}
+
 export type ExternalAgentPresentation = {
   displayName: string | null;
   avatarUrl: string | null;
