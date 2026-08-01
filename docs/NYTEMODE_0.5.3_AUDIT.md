@@ -74,3 +74,39 @@ The integrated source passed:
 - 69 focused Playwright tests covering manual channel-category order, provider
   usage, exact-pubkey external agents, and mentions
 - NYTEMODE upstream-sync, release, local-updater, and release-ref contracts
+
+## Published and installed receipt
+
+- Fork Main source: `6ea158b48a22e90d3b07ee5838b4daf0b0b5b113`
+- Live exact-tag sync verification: GitHub Actions run `30684171554`
+- Loopback feed version: `0.5.3-nytemode.1`
+- Bundle identifier: `xyz.block.buzz.app`
+- Installed path: `/Applications/Buzz.app`
+- Installed executable SHA-256:
+  `bc7815ac8409a0f028790054ac583e6c9d22e78c555af581d6cfed468b358f15`
+- Installed signing identity: Apple Development team `Q2QT3TXJE4`
+
+The pre-update installed client (`0.5.1-nytemode.8`) first displayed its old
+no-update state. After publishing the strictly newer signed manifest, the same
+running client downloaded it, displayed `Update downloaded. Click to apply.`,
+applied it through Tauri's updater, and relaunched as `0.5.3-nytemode.1`. The
+post-update Settings UI displayed `You're on the latest nytemode build.` Existing
+channels, history, manual sidebar categories, and managed/external agent identities
+remained present after relaunch.
+
+## Hosted release credential boundary
+
+The fork already has the Tauri updater keys and the workflow-capable upstream
+sync token. A hosted, notarized production updater release additionally requires
+these repository secrets:
+
+- `APPLE_CERTIFICATE`
+- `APPLE_CERTIFICATE_PASSWORD`
+- `APPLE_ID`
+- `APPLE_PASSWORD`
+- `APPLE_SIGNING_IDENTITY`
+- `APPLE_TEAM_ID`
+
+Until those owner-controlled Apple credentials are supplied, the loopback feed
+is the verified updater path for the owner Mac. The workflow must not claim a
+hosted production release without those credentials and its release receipts.
