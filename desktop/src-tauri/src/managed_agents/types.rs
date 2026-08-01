@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::PathBuf, process::Child};
 
+mod relay_agent;
+pub use relay_agent::RelayAgentInfo;
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum BackendKind {
@@ -193,29 +196,6 @@ impl ManagedAgentRecord {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RelayAgentInfo {
-    pub pubkey: String,
-    pub name: String,
-    /// NIP-OA verified owner from the agent-authored directory event.
-    #[serde(default)]
-    pub owner_pubkey: Option<String>,
-    /// Relay-backed ownership by the current Buzz identity.
-    #[serde(default)]
-    pub is_owner_managed: bool,
-    #[serde(default)]
-    pub owner_managed_persona_id: Option<String>,
-    pub agent_type: String,
-    pub channels: Vec<String>,
-    #[serde(default)]
-    pub channel_ids: Vec<String>,
-    pub capabilities: Vec<String>,
-    pub status: String,
-    #[serde(default)]
-    pub respond_to: Option<RespondTo>,
-    #[serde(default)]
-    pub respond_to_allowlist: Vec<String>,
-}
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ManagedAgentRecord {
     pub pubkey: String,
@@ -595,7 +575,8 @@ pub struct ManagedAgentLogResponse {
 pub enum AcpAvailabilityStatus {
     Available,
     AdapterMissing,
-    /// Adapter binary is present but is from the deprecated package (< 1.0). Reinstall required.
+    /// Adapter binary is present but unsupported — either the deprecated
+    /// package or a version below the supported floor. Reinstall required.
     AdapterOutdated,
     CliMissing,
     NotInstalled,
@@ -709,6 +690,10 @@ pub struct InstallRuntimeResult {
     /// Number of agents whose stop succeeded but respawn failed.
     /// Mirrors `GlobalAgentConfigSaveResult.failed_restart_count`.
     pub failed_restart_count: u32,
+    /// Install log file for this run, when one was written. The UI surfaces it
+    /// on failure so a user can read the full retry history instead of only the
+    /// last step's truncated output. `None` when no log could be opened.
+    pub log_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

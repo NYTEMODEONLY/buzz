@@ -4,9 +4,9 @@ nytemode edition is the single Buzz desktop client maintained for nytemode.
 It follows current `block/buzz:main` while keeping a small, reviewable patch
 stack for custom product behavior.
 
-The current reviewed upstream baseline is Buzz `v0.5.1` at
-`a13085e9ac9a7c8dbd9426a6b88fc75abf62220e`. See the
-[0.5.1 integration audit](NYTEMODE_0.5.1_AUDIT.md).
+The current reviewed upstream baseline is Buzz `desktop-v0.5.3` at
+`3a96acea09b4a9e3f02c3a26cfb0607d2ccacf42`. See the
+[0.5.3 integration audit](NYTEMODE_0.5.3_AUDIT.md).
 
 ## Product contract
 

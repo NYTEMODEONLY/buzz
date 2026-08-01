@@ -15,12 +15,18 @@ branch. `block/buzz` is source input, never an automatic binary update.
 
 ## Routine
 
-1. Fetch upstream tags and identify the exact Block release commit.
+1. Fetch upstream tags and identify the exact Block release commit. Historical
+   desktop releases use `vX.Y.Z`; current releases use `desktop-vX.Y.Z`.
 2. Create `automation/upstream-vX.Y.Z` from `fork/main`, merge the exact
    release tag, and open a pull request into `fork/main`. The daily
-   `Propose upstream sync` workflow does this only for the latest stable GitHub
-   desktop release. It never merges mutable `origin/main`, never force-updates
-   a reviewed proposal, and fails for explicit conflict resolution.
+   `Propose upstream sync` workflow does this for the latest stable GitHub
+   desktop release or an explicitly dispatched exact tag. It normalizes both
+   supported tag namespaces, verifies all four desktop version records after
+   merging, never merges mutable `origin/main`, never force-updates a reviewed
+   proposal, and fails for explicit conflict resolution. Its
+   `NYTEMODE_SYNC_TOKEN` secret must be authorized for repository contents,
+   pull requests, and workflow-file writes because official release deltas may
+   update `.github/workflows/*`.
 3. Review the feature matrix in `NYTEMODE_EDITION.md`.
 4. Compare each custom patch with upstream. Retire patches whose behavior is
    now native.

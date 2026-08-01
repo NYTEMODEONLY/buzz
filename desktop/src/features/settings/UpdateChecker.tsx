@@ -13,7 +13,7 @@ export function UpdateChecker() {
     <section className="min-w-0" data-testid="settings-updates">
       <SettingsSectionHeader
         title="Software Updates"
-        description="Keep Buzz up to date with the latest features and fixes."
+        description="Install signed nytemode builds after official Buzz source updates are integrated."
       />
 
       <SettingsOptionGroup>
@@ -47,7 +47,7 @@ export function UpdateChecker() {
             <div className="min-w-0">
               <p className="text-sm font-medium">Update status</p>
               <p className="text-sm font-normal text-muted-foreground">
-                You're on the latest version.
+                You're on the latest nytemode build.
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={checkForUpdate}>

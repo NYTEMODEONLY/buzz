@@ -14,7 +14,11 @@ use serde_json::{json, Value};
 
 use crate::models::*;
 
+#[cfg(test)]
+mod oa_directory_tests;
+mod oa_owner;
 mod user_search;
+use oa_owner::valid_oa_owner_pubkey;
 pub use user_search::{
     list_user_search_results, rank_user_search_results, search_users_from_events,
     user_search_result_from_event,
@@ -53,34 +57,6 @@ fn tags_named<'a>(event: &'a Event, name: &'a str) -> impl Iterator<Item = &'a [
             None
         }
     })
-}
-
-/// Return the owner pubkey from a valid NIP-OA owner tag.
-///
-/// NIP-OA marks an agent identity by having the owner sign an `auth` tag for
-/// the agent pubkey. We verify the tag against the event author, not
-/// against the owner, so a forged or stale marker does not turn a person into
-/// an agent in mention search.
-fn valid_oa_owner_pubkey(event: &Event) -> Option<String> {
-    let target_hex = event.pubkey.to_hex();
-    let Ok(target_pubkey) = nostr::PublicKey::from_hex(&target_hex) else {
-        return None;
-    };
-
-    for tag in event.tags.iter() {
-        let slice = tag.as_slice();
-        if slice.first().map(String::as_str) != Some("auth") || slice.len() != 4 {
-            continue;
-        }
-        let Ok(json) = serde_json::to_string(slice) else {
-            continue;
-        };
-        if let Ok(owner_pubkey) = buzz_sdk_pkg::nip_oa::verify_auth_tag(&json, &target_pubkey) {
-            return Some(owner_pubkey.to_hex());
-        }
-    }
-
-    None
 }
 
 pub(crate) fn profile_valid_oa_owner_pubkey(event: &Event) -> Option<String> {
@@ -502,8 +478,7 @@ pub fn agents_from_events(events: &[Event]) -> Value {
                     "capabilities": [],
                     "status": "offline",
                 });
-                if let (Some(obj), Some(owner_pubkey)) =
-                    (v.as_object_mut(), verified_owner_pubkey)
+                if let (Some(obj), Some(owner_pubkey)) = (v.as_object_mut(), verified_owner_pubkey)
                 {
                     obj.insert("owner_pubkey".to_string(), json!(owner_pubkey));
                 }
@@ -614,8 +589,8 @@ mod tests {
             .expect("sign")
     }
 
-    /// Build an agent-authored event with a valid NIP-OA auth tag.
-    fn oa_event(kind: Kind, content: &str) -> (Event, String) {
+    /// Build a kind:0 profile with a valid NIP-OA auth tag.
+    fn oa_profile_event(content: &str) -> (Event, String) {
         let agent_keys = Keys::generate();
         let owner_keys = Keys::generate();
         let agent_pubkey = agent_keys.public_key();
@@ -624,16 +599,11 @@ mod tests {
         let tag_values: Vec<String> = serde_json::from_str(&tag_json).expect("parse auth tag json");
         let auth_tag = Tag::parse(tag_values).expect("parse auth tag");
 
-        let event = EventBuilder::new(kind, content)
+        let event = EventBuilder::new(Kind::Metadata, content)
             .tags(vec![auth_tag])
             .sign_with_keys(&agent_keys)
             .expect("sign");
         (event, owner_keys.public_key().to_hex())
-    }
-
-    /// Build a kind:0 profile with a valid NIP-OA auth tag.
-    fn oa_profile_event(content: &str) -> (Event, String) {
-        oa_event(Kind::Metadata, content)
     }
 
     #[test]
@@ -950,41 +920,6 @@ mod tests {
         assert_eq!(parsed[0].capabilities, Vec::<String>::new());
         assert_eq!(parsed[0].status, "offline");
         assert_eq!(parsed[0].respond_to, None);
-        assert_eq!(parsed[0].owner_pubkey, None);
-    }
-
-    #[test]
-    fn agents_derives_owner_from_valid_nip_oa_auth_tag() {
-        let (e, owner_pubkey) = oa_event(
-            Kind::from_u16(10100),
-            r#"{"name":"Scout","respond_to":"owner-only"}"#,
-        );
-        let v = agents_from_events(std::slice::from_ref(&e));
-        let agents = v.get("agents").cloned().unwrap();
-        let parsed: Vec<crate::managed_agents::RelayAgentInfo> =
-            serde_json::from_value(agents).unwrap();
-
-        assert_eq!(parsed.len(), 1);
-        assert_eq!(parsed[0].pubkey, e.pubkey.to_hex());
-        assert_eq!(parsed[0].owner_pubkey.as_deref(), Some(owner_pubkey.as_str()));
-    }
-
-    #[test]
-    fn agents_rejects_self_claimed_owner_without_valid_nip_oa_auth_tag() {
-        let claimed_owner = "a".repeat(64);
-        let e = ev(
-            10100,
-            &format!(
-                r#"{{"name":"Scout","owner_pubkey":"{claimed_owner}","respond_to":"owner-only"}}"#
-            ),
-            vec![],
-        );
-        let v = agents_from_events(std::slice::from_ref(&e));
-        let agents = v.get("agents").cloned().unwrap();
-        let parsed: Vec<crate::managed_agents::RelayAgentInfo> =
-            serde_json::from_value(agents).unwrap();
-
-        assert_eq!(parsed.len(), 1);
         assert_eq!(parsed[0].owner_pubkey, None);
     }
 

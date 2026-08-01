@@ -2,6 +2,11 @@ name: Propose upstream sync
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Exact official desktop release tag (vX.Y.Z or desktop-vX.Y.Z); latest when empty"
+        required: false
+        type: string
   schedule:
     - cron: "23 13 * * *"
 
@@ -21,19 +26,26 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 0
+          token: ${{ secrets.NYTEMODE_SYNC_TOKEN }}
 
       - name: Resolve latest official desktop release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          TAG=$(gh api repos/block/buzz/releases/latest --jq .tag_name)
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+          TAG="${INPUT_TAG:-}"
+          if [[ -z "$TAG" ]]; then
+            TAG=$(gh api repos/block/buzz/releases/latest --jq .tag_name)
+          fi
+          [[ "$TAG" =~ ^(desktop-)?v([0-9]+\.[0-9]+\.[0-9]+)$ ]] || {
             echo "::error::Latest Block release tag '$TAG' is not stable desktop SemVer"
             exit 1
           }
+          VERSION="${BASH_REMATCH[2]}"
           echo "UPSTREAM_TAG=$TAG" >> "$GITHUB_ENV"
-          echo "BRANCH=automation/upstream-$TAG" >> "$GITHUB_ENV"
+          echo "UPSTREAM_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "BRANCH=automation/upstream-v$VERSION" >> "$GITHUB_ENV"
 
       - name: Merge exact official release into a new proposal branch
         run: |
@@ -58,15 +70,19 @@ jobs:
             git diff --name-only --diff-filter=U
             exit 1
           fi
+          node desktop/scripts/verify-release-version.mjs "$UPSTREAM_VERSION"
           git push origin "HEAD:refs/heads/$BRANCH"
 
-      - name: Open or refresh review pull request
-        if: env.already_current != 'true' && env.proposal_exists != 'true'
+      - name: Open review pull request when missing
+        if: env.already_current != 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.NYTEMODE_SYNC_TOKEN }}
         run: |
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "chore: integrate block/buzz $UPSTREAM_TAG" \
-            --body-file docs/UPSTREAM_SYNC.md
+          set -euo pipefail
+          if [[ "$(gh pr list --base main --head "$BRANCH" --state open --json number --jq length)" == "0" ]]; then
+            gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "chore: integrate block/buzz $UPSTREAM_TAG" \
+              --body-file docs/UPSTREAM_SYNC.md
+          fi
