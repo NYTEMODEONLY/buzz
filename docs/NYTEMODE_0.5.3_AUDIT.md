@@ -13,6 +13,7 @@ at one layer does not prove the others.
   `3e48f1b2365d326ee1c9582448d86a99b44ecd5d`
 - Upstream 0.5.3: `desktop-v0.5.3` at
   `3a96acea09b4a9e3f02c3a26cfb0607d2ccacf42`
+- NYTEMODE integration merge: `56d52df3d`
 
 The merge retains NYTEMODE's provider allowance UI, manual sidebar ordering,
 exact-pubkey external-agent and mention behavior, detached agent activity, and
@@ -58,3 +59,18 @@ The hosted production release remains blocked until the fork repository has
 the required Apple signing and notarization secrets. A signed loopback updater
 release can prove the end-to-end updater path on the owner Mac without changing
 the installed product identity or data.
+
+## Source verification receipt
+
+The integrated source passed:
+
+- synchronized desktop version verification for `0.5.3`
+- formatting, file-size, pixel-text, and pubkey-truncation checks
+- TypeScript type checking
+- 3,962 desktop JavaScript tests
+- 2,088 desktop Rust library tests and 3 mixer diagnostics; 14 tests that
+  require a real OS keychain were ignored by their explicit test contract
+- 649 `buzz-acp` library tests
+- 69 focused Playwright tests covering manual channel-category order, provider
+  usage, exact-pubkey external agents, and mentions
+- NYTEMODE upstream-sync, release, local-updater, and release-ref contracts
